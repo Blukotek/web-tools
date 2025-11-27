@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">MIDI Remapper</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --text-color: #333;
+            --accent-color: #007bff;
+            --border-color: #ddd;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --learn-color: #ffc107;
+            --programming-mode-color: #6f42c1;
+            --performance-mode-color: #007bff;
+            --blocked-color: #dc3545;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 { text-align: center; margin-bottom: 5px; }
+        
+        /* Styl dla napisu z atrybucją */
+        .attribution {
+            text-align: center;
+            font-size: 0.85em;
+            color: #999;
+            margin-top: -10px;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .controls-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .storage-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .storage-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .control-group-wide {
+            flex: 2;
+            min-width: 400px;
+        }
+        .control-group-small {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        /* Pole Drag & Drop */
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            padding: 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .drop-zone.dragover {
+            background-color: #e0f7fa;
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        select, button, input[type="file"], input[type="number"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            outline: none;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover { background-color: #0056b3; }
+        button.secondary { background-color: #6c757d; }
+        button.secondary:hover { background-color: #5a6268; }
+        button.danger { background-color: var(--danger-color); }
+        button.danger:hover { background-color: #c82333; }
+        button.delete-btn { 
+             background-color: var(--danger-color); 
+             padding: 8px 12px;
+             font-size: 13px;
+             width: auto;
+             max-width: 100px;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+
+        #status-message {
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 500;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #e9ecef;
+            border: 1px solid #ddd;
+        }
+        .status-ok { color: var(--success-color); background-color: #d4edda !important; border-color: #c3e6cb !important; }
+        .status-error { color: var(--danger-color); background-color: #f8d7da !important; border-color: #f5c6cb !important; }
+        .status-learn { color: var(--learn-color); background-color: #fff3cd !important; border-color: #ffeeba !important; }
+        .status-programming { color: var(--programming-mode-color); background-color: #e0daec !important; border-color: #d1c1e0 !important; }
+        .status-performance { color: var(--performance-mode-color); background-color: #d8edf7 !important; border-color: #b3d7ff !important; }
+        .status-blocked { color: var(--blocked-color); background-color: #fbe6e8 !important; border-color: #f5c6cb !important; }
+
+
+        /* Tabela mapowania */
+        .mapping-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        th { background-color: #f1f3f5; font-weight: 600; }
+        tr:last-child td { border-bottom: none; }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+        .input-group input, .input-group select {
+            padding: 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .input-group input.channel-input { flex: 0 0 60px; }
+        .input-group select.command-select { flex: 2; }
+        .input-group input.param-input { flex: 1; }
+        
+        input[type="number"] { -moz-appearance: textfield; }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        tr.active-in { background-color: #e3f2fd; transition: background-color 0.2s; }
+        
+        .learn-toggle {
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            margin: 0 auto;
+            display: block;
+        }
+        .programming-mode-toggle-label {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             font-weight: 600;
+             color: var(--programming-mode-color);
+             cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1><span id="main-title-text">MIDI Remapper</span> <span id="session-name-display" style="font-weight: 400; font-size: 0.9em; color: #666;">(Bez nazwy sesji)</span></h1>
+    <p class="attribution">według pomysłu: piotr.zaczek@gmail.com</p>
+    <div id="status-message">Inicjalizacja Web MIDI API...</div>
+
+    <div class="controls-section">
+        <div class="control-group">
+            <label for="midi-in-select">Urządzenie Wejściowe (Input):</label>
+            <select id="midi-in-select">
+                <option value="">-- Najpierw załaduj API --</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="midi-out-select">Urządzenie Wyjściowe (Output):</label>
+            <select id="midi-out-select">
+                <option value="">-- Najpierw załaduj API --</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="storage-section">
+        <div class="storage-row">
+            <div class="control-group-wide">
+                <label>Zarządzanie Mapą:</label>
+                <div style="display: flex; gap: 10px;">
+                    <button id="save-btn" style="flex: 1;">Zapisz do pliku</button>
+                    <button id="load-btn-trigger" class="secondary" style="flex: 1;">Wczytaj z pliku</button>
+                    <input type="file" id="load-file-input" accept=".json" style="display: none;">
+                </div>
+                <div class="drop-zone" id="drop-zone" title="Upuść plik .json, aby wczytać mapowanie">
+                    Przeciągnij i upuść plik .json z mapowaniem tutaj
+                </div>
+            </div>
+            
+            <div class="control-group-small">
+                 <label class="programming-mode-toggle-label" for="programming-mode-toggle">
+                    <input type="checkbox" id="programming-mode-toggle" class="programming-mode-toggle" checked>
+                    Tryb Programowania
+                </label>
+                <p style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                    **Zaznaczone:** Dodaje nowe komunikaty, wszystkie komunikaty przepuszczane (domyślnie 1:1).
+                </p>
+            </div>
+            
+            <div class="control-group-small">
+                 <label style="color: transparent;">&nbsp;</label>
+                 <button id="clear-btn" class="danger">Wyczyść listę</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mapping-container">
+        <h2>Mapa Komunikatów</h2>
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">**Tryb Programowania** pozwala na dodawanie (poprzez granie) i usuwanie mapowań. **Tryb Pracy** blokuje komunikaty spoza listy, działając jako ścisły filtr.</p>
+        <table id="mapping-table">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Kanał</th>
+                    <th style="width: 18%;">Komenda</th>
+                    <th style="width: 17%;">Numer (Źródło)</th>
+                    <th style="width: 3%; text-align: center;">-></th>
+                    <th style="width: 35%;">Wyślij Nowy Komunikat (Kanał | Komenda | Numer)</th>
+                    <th style="width: 8%; text-align: center;">Ucz się</th>
+                    <th style="width: 9%; text-align: center;">Akcje</th>
+                </tr>
+            </thead>
+            <tbody id="mapping-list-body">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // =================================================================
+    // WERSJA PARAMETRYCZNA (Kanał/Komenda/Numer) z Trybem Nauki i Programowania
+    // =================================================================
+
+    // --- Zmienne globalne ---
+    let midiAccess = null;
+    let activeInput = null;
+    let activeOutput = null;
+    let mappings = {}; 
+    let learningKey = null; 
+    let programmingMode = true; 
+    let sessionFileName = 'Bez nazwy sesji'; // Nowa zmienna do śledzenia nazwy sesji
+
+    // Elementy DOM
+    const statusMsg = document.getElementById('status-message');
+    const midiInSelect = document.getElementById('midi-in-select');
+    const midiOutSelect = document.getElementById('midi-out-select');
+    const mappingListBody = document.getElementById('mapping-list-body');
+    const saveBtn = document.getElementById('save-btn');
+    const loadBtnTrigger = document.getElementById('load-btn-trigger');
+    const loadFileInput = document.getElementById('load-file-input');
+    const clearBtn = document.getElementById('clear-btn');
+    const programmingModeToggle = document.getElementById('programming-mode-toggle');
+    const dropZone = document.getElementById('drop-zone'); // Nowy element
+
+    // Definicje komend MIDI
+    const MIDI_COMMANDS = {
+        0x80: 'Note Off', 0x90: 'Note On', 0xA0: 'Poly Key Pressure',
+        0xB0: 'Control Change', 0xC0: 'Program Change', 0xD0: 'Channel Pressure', 
+        0xE0: 'Pitch Bend'
+    };
+    const COMMAND_OPTIONS = Object.values(MIDI_COMMANDS).map(name => `<option value="${name}">${name}</option>`).join('');
+
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    function getNoteName(noteNumber) {
+        if (noteNumber === undefined || noteNumber < 0 || noteNumber > 127) return '---';
+        const octave = Math.floor(noteNumber / 12) - 1; 
+        const note = NOTE_NAMES[noteNumber % 12];
+        return `${note}${octave} (${noteNumber})`;
+    }
+
+    // --- Funkcje Parsowania i Tworzenia Komunikatów MIDI (bez zmian) ---
+    function parseMidiMessage(midiData) {
+        const rawData = midiData.rawData || midiData;
+        const statusByte = rawData[0];
+        if (statusByte >= 0xF0) return null; 
+        const channel = (statusByte & 0x0F) + 1; 
+        const commandTypeHex = statusByte & 0xF0; 
+        const commandName = MIDI_COMMANDS[commandTypeHex];
+        if (!commandName) return null; 
+        const parsed = {
+            channel: channel,
+            command: commandName,
+            typeHex: commandTypeHex,
+            rawData: rawData, 
+            paramKey: rawData.length >= 2 ? rawData[1] : undefined, 
+            dynamicValue: undefined
+        };
+        if (commandTypeHex === 0xD0 || commandTypeHex === 0xE0) {
+            parsed.paramKey = undefined;
+        }
+        if ([0x80, 0x90, 0xA0, 0xB0].includes(commandTypeHex) && rawData.length >= 3) {
+            parsed.dynamicValue = rawData[2]; 
+        } else if ((commandTypeHex === 0xC0 || commandTypeHex === 0xD0) && rawData.length >= 2) {
+             parsed.dynamicValue = rawData[1]; 
+        } else if (commandTypeHex === 0xE0 && rawData.length >= 3) {
+             parsed.dynamicValue = ((rawData[2] & 0x7F) << 7) | (rawData[1] & 0x7F);
+        }
+        return parsed;
+    }
+
+    function getMappingKey(parsedMessage) {
+        let key = `Ch${parsedMessage.channel}_${parsedMessage.command.replace(/\s/g, '')}`;
+        const param = parsedMessage.paramKey;
+        if (param !== undefined) {
+            key += `_${param}`; 
+        }
+        return key;
+    }
+
+    function createTargetMidiBytes(targetParams, originalParsedMsg) {
+        const targetCommandName = targetParams.command;
+        const targetChannel = parseInt(targetParams.channel);
+        const targetParam = parseInt(targetParams.param); 
+        
+        if (!targetCommandName || isNaN(targetChannel) || targetChannel < 1 || targetChannel > 16) return null;
+
+        let commandTypeHex = null;
+        for (const [hex, name] of Object.entries(MIDI_COMMANDS)) {
+            if (name === targetCommandName) { commandTypeHex = parseInt(hex); break; }
+        }
+        if (commandTypeHex === null) return null;
+
+        const statusByte = commandTypeHex | (targetChannel - 1); 
+        let dataBytes = [];
+        let primaryParam = targetParam !== undefined && !isNaN(targetParam) 
+                           ? Math.max(0, Math.min(127, targetParam)) 
+                           : 0; 
+        
+        const originalRawData = originalParsedMsg.rawData;
+        const originalDynamicValue = originalParsedMsg.dynamicValue;
+        
+        switch (commandTypeHex) {
+            case 0x80: case 0x90: case 0xA0: case 0xB0:
+                let value = (originalDynamicValue !== undefined && !isNaN(originalDynamicValue)) ? originalDynamicValue : 0;
+                dataBytes.push(primaryParam, value & 0x7F); 
+                break;
+            case 0xC0: 
+                dataBytes.push(primaryParam); 
+                break;
+            case 0xD0: 
+                 let pressure = (originalDynamicValue !== undefined && !isNaN(originalDynamicValue)) ? originalDynamicValue : 0;
+                 dataBytes.push(pressure & 0x7F); 
+                 break;
+            case 0xE0: 
+                if (originalRawData.length >= 3) {
+                    dataBytes.push(originalRawData[1] & 0x7F); 
+                    dataBytes.push(originalRawData[2] & 0x7F); 
+                } else {
+                     dataBytes.push(0x40, 0x40); 
+                }
+                break;
+        }
+
+        return new Uint8Array([statusByte, ...dataBytes]);
+    }
+
+
+    // --- Inicjalizacja MIDI i Kontrolki Wyboru ---
+
+    if (navigator.requestMIDIAccess) {
+        setStatus('Web MIDI API: Ładowanie...', true);
+        navigator.requestMIDIAccess({ sysex: false }).then(onMIDISuccess, onMIDIFailure);
+    } else {
+        setStatus('Twoja przeglądarka nie obsługuje Web MIDI API.', false, 'error');
+    }
+
+    function updateSessionTitle() {
+        document.title = `MIDI Remapper - ${sessionFileName}`;
+        document.getElementById('session-name-display').textContent = `(${sessionFileName})`;
+    }
+
+    function setStatus(msg, isSuccess, type = 'default') {
+        statusMsg.textContent = msg;
+        statusMsg.className = ''; 
+
+        if (type === 'programming') {
+            statusMsg.classList.add('status-programming');
+        } else if (type === 'performance') {
+            statusMsg.classList.add('status-performance');
+        } else if (type === 'blocked') {
+            statusMsg.classList.add('status-blocked');
+        } else if (type === 'learn') {
+             statusMsg.classList.add('status-learn');
+        } else {
+            statusMsg.classList.add(isSuccess ? 'status-ok' : 'status-error');
+        }
+    }
+
+    function onMIDISuccess(access) {
+        midiAccess = access;
+        updateDeviceLists();
+        midiAccess.onstatechange = updateDeviceLists;
+        updateProgrammingModeUI(); 
+        updateSessionTitle(); // Inicjalizacja tytułu
+    }
+
+    function onMIDIFailure(error) {
+        console.error("Błąd dostępu do MIDI:", error);
+        setStatus('BŁĄD MIDI: Nie udało się uzyskać dostępu. Upewnij się, że używasz serwera HTTP (np. http://localhost).', false, 'error');
+    }
+
+    function updateDeviceLists() {
+        const currentInId = midiInSelect.value;
+        const currentOutId = midiOutSelect.value;
+        midiInSelect.innerHTML = '<option value="">-- Wybierz wejście --</option>';
+        midiOutSelect.innerHTML = '<option value="">-- Wybierz wyjście --</option>';
+        
+        for (let input of midiAccess.inputs.values()) {
+            const option = new Option(input.name, input.id);
+            option.selected = (input.id === currentInId);
+            midiInSelect.appendChild(option);
+        }
+        for (let output of midiAccess.outputs.values()) {
+            const option = new Option(output.name, output.id);
+            option.selected = (output.id === currentOutId);
+            midiOutSelect.appendChild(option);
+        }
+
+        if (activeInput && !midiAccess.inputs.get(activeInput.id)) activeInput = null;
+        if (activeOutput && !midiAccess.outputs.get(activeOutput.id)) activeOutput = null;
+        
+        if (midiAccess) updateProgrammingModeUI(); 
+    }
+
+    midiInSelect.addEventListener('change', (e) => {
+        if (activeInput) activeInput.onmidimessage = null; 
+        const inputId = e.target.value;
+        if (inputId) {
+            activeInput = midiAccess.inputs.get(inputId);
+            activeInput.onmidimessage = onMIDIMessage;
+            setStatus(`Wybrano wejście: ${activeInput.name}`, true);
+        } else {
+            activeInput = null;
+        }
+        updateProgrammingModeUI();
+    });
+
+    midiOutSelect.addEventListener('change', (e) => {
+        const outputId = e.target.value;
+        if (outputId) {
+            activeOutput = midiAccess.outputs.get(outputId);
+            setStatus(`Wybrano wyjście: ${activeOutput.name}`, true);
+        } else {
+            activeOutput = null;
+        }
+        updateProgrammingModeUI();
+    });
+    
+    // --- Obsługa trybu programowania i interfejsu ---
+    programmingModeToggle.addEventListener('change', (e) => {
+        programmingMode = e.target.checked;
+        updateProgrammingModeUI();
+    });
+
+    function updateProgrammingModeUI() {
+        learningKey = null;
+        
+        if (programmingMode) {
+            setStatus('Tryb Programowania aktywny. Nowe komunikaty MIDI będą dodawane do listy.', true, 'programming');
+        } else {
+            setStatus('Tryb Pracy (Performance Mode) aktywny. Nowe komunikaty są BLOKOWANE. Tylko mapowane komunikaty będą przesyłane.', true, 'performance');
+        }
+
+        const isDisabled = !programmingMode;
+        
+        document.querySelectorAll('.learn-toggle').forEach(checkbox => {
+            checkbox.checked = false; 
+            checkbox.disabled = isDisabled; 
+        });
+        
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.disabled = isDisabled;
+        });
+
+        saveBtn.disabled = isDisabled && Object.keys(mappings).length === 0;
+        loadBtnTrigger.disabled = isDisabled;
+        loadFileInput.disabled = isDisabled;
+        clearBtn.disabled = isDisabled;
+    }
+
+
+    // --- Logika usuwania wierszy ---
+    function deleteMapping(key) {
+        if (!programmingMode) {
+             alert("Aby usuwać mapowania, włącz 'Tryb Programowania'.");
+             return;
+        }
+        if (confirm(`Czy na pewno chcesz usunąć mapowanie dla klucza ${key}?`)) {
+            delete mappings[key];
+            const row = document.getElementById('row-' + key);
+            if (row) {
+                row.remove();
+            }
+            setStatus(`Usunięto mapowanie: ${key}`, true, 'programming');
+        }
+    }
+
+
+    // --- Logika Trybu Nauki ---
+    function handleLearnToggle(e, key) {
+        if (!programmingMode) {
+            e.target.checked = false;
+            setStatus('Nie można włączyć trybu "Ucz się" w Trybie Pracy.', false, 'error');
+            return;
+        }
+
+        const isChecked = e.target.checked;
+
+        if (isChecked) {
+            document.querySelectorAll('.learn-toggle').forEach(checkbox => {
+                if (checkbox.dataset.key !== key && checkbox.checked) {
+                    checkbox.checked = false;
+                }
+            });
+            
+            learningKey = key;
+            setStatus(`Tryb nauki włączony dla klucza: **${key}**. Naciśnij docelowy kontroler.`, true, 'learn');
+        } else {
+            if (learningKey === key) {
+                learningKey = null;
+                setStatus('Tryb nauki wyłączony. Wrócono do trybu programowania.', true, 'programming'); 
+            }
+        }
+    }
+
+
+    // --- Główna logika przetwarzania komunikatów (bez zmian) ---
+    function onMIDIMessage(event) {
+        const rawData = event.data;
+        if (rawData[0] >= 0xF8) return; 
+
+        const parsedMsg = parseMidiMessage({ rawData: rawData });
+        if (!parsedMsg) return; 
+        
+        const canonicalKey = getMappingKey(parsedMsg);
+
+        // 1. LOGIKA TRYBU NAUKI
+        if (learningKey !== null) {
+            const keyToUpdate = learningKey;
+            const rowToUpdate = document.getElementById('row-' + keyToUpdate);
+            
+            const newTargetParams = {
+                channel: parsedMsg.channel,
+                command: parsedMsg.command,
+                param: parsedMsg.paramKey 
+            };
+            
+            mappings[keyToUpdate] = newTargetParams;
+            updateTargetInputGroup(rowToUpdate.querySelector('.input-group'), newTargetParams);
+
+            learningKey = null;
+            const checkboxToUncheck = rowToUpdate.querySelector('.learn-toggle');
+            if (checkboxToUncheck) {
+                 checkboxToUncheck.checked = false;
+            }
+            
+            setStatus(`Sukces! Zmapowano wejście **${keyToUpdate}** do kanału **${newTargetParams.channel}**, komendy **${newTargetParams.command}** i numeru **${newTargetParams.param !== undefined ? newTargetParams.param : '---'}**. Tryb programowania aktywny.`, true, 'programming');
+            return; 
+        }
+
+        // 2. LOGIKA TRYBU PROGRAMOWANIA / PRACY
+        let currentTarget = mappings[canonicalKey];
+        let isMessageMapped = currentTarget !== undefined;
+
+        if (!isMessageMapped && !programmingMode) {
+            setStatus(`TRYB PRACY: Zablokowano nieznany komunikat: ${canonicalKey}`, false, 'blocked');
+            return; 
+        }
+
+        if (!isMessageMapped && programmingMode) {
+            currentTarget = { 
+                channel: parsedMsg.channel, 
+                command: parsedMsg.command, 
+                param: parsedMsg.paramKey 
+            };
+            mappings[canonicalKey] = currentTarget;
+
+            let rowToHighlight = createMappingRow(canonicalKey, parsedMsg, currentTarget);
+            mappingListBody.appendChild(rowToHighlight);
+
+            setStatus(`TRYB PROGRAMOWANIA: Dodano nowy komunikat do listy: ${canonicalKey}`, true, 'programming');
+
+        } else {
+            let rowToHighlight = document.getElementById('row-' + canonicalKey);
+            if (rowToHighlight) {
+                document.querySelectorAll('tr.active-in').forEach(r => r.classList.remove('active-in'));
+                rowToHighlight.classList.add('active-in');
+            }
+        }
+
+        // 3. Wysyłanie zamiennika (do outputu)
+        if (activeOutput) {
+            const isActuallyMapped = (currentTarget.channel !== parsedMsg.channel || 
+                                      currentTarget.command !== currentTarget.command || 
+                                      currentTarget.param !== parsedMsg.paramKey);
+
+            if (isActuallyMapped) {
+                const newBytes = createTargetMidiBytes(currentTarget, parsedMsg); 
+                if (newBytes) {
+                    activeOutput.send(newBytes);
+                }
+            } else {
+                activeOutput.send(rawData);
+            }
+        }
+    }
+
+    // --- Obsługa Interfejsu (UI) ---
+    function getNoteDisplay(command, param) {
+         if (param === undefined) return '---';
+         const commandType = command.includes('Note') || command.includes('Pressure') ? 'Note' : (command === 'Control Change' ? 'CC' : (command === 'Program Change' ? 'Prog' : '---'));
+         
+         if (commandType === 'Note') {
+             return getNoteName(param);
+         } else if (commandType === 'CC') {
+             return `CC#${param}`;
+         } else if (commandType === 'Prog') {
+             return `Prog#${param}`;
+         }
+         return param;
+    }
+    
+    function createMappingRow(key, originalParsedMsg, targetParams) {
+        const row = document.createElement('tr');
+        row.id = 'row-' + key;
+        const isDeleteDisabled = !programmingMode;
+
+        // Kanał
+        let cell = document.createElement('td');
+        cell.textContent = originalParsedMsg.channel;
+        row.appendChild(cell);
+
+        // Komenda
+        cell = document.createElement('td');
+        cell.textContent = originalParsedMsg.command;
+        row.appendChild(cell);
+
+        // Numer (Źródło)
+        cell = document.createElement('td');
+        cell.textContent = originalParsedMsg.paramKey !== undefined ? getNoteDisplay(originalParsedMsg.command, originalParsedMsg.paramKey) : '---';
+        row.appendChild(cell);
+
+        // Strzałka
+        cell = document.createElement('td');
+        cell.textContent = '->';
+        cell.style.textAlign = 'center';
+        row.appendChild(cell);
+
+        // Parametry Docelowe
+        cell = document.createElement('td');
+        cell.appendChild(createTargetInputGroup(key, targetParams));
+        row.appendChild(cell);
+        
+        // Przełącznik Learn
+        cell = document.createElement('td');
+        cell.style.textAlign = 'center';
+        const learnCheckbox = document.createElement('input');
+        learnCheckbox.type = 'checkbox';
+        learnCheckbox.className = 'learn-toggle';
+        learnCheckbox.dataset.key = key;
+        learnCheckbox.title = "Zaznacz, a następny odebrany komunikat wypełni pola 'Nowy Komunikat'.";
+        learnCheckbox.disabled = isDeleteDisabled;
+        learnCheckbox.addEventListener('change', (e) => handleLearnToggle(e, key));
+        cell.appendChild(learnCheckbox);
+        row.appendChild(cell);
+        
+        // Akcje (Usuń)
+        cell = document.createElement('td');
+        cell.style.textAlign = 'center';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Usuń';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.disabled = isDeleteDisabled;
+        deleteBtn.addEventListener('click', () => deleteMapping(key));
+        cell.appendChild(deleteBtn);
+        row.appendChild(cell);
+
+        return row;
+    }
+    
+    function createTargetInputGroup(key, currentTarget) {
+        const group = document.createElement('div');
+        group.className = 'input-group';
+        group.dataset.originalKey = key;
+
+        const channelInput = document.createElement('input');
+        channelInput.type = 'number';
+        channelInput.min = 1;
+        channelInput.max = 16;
+        channelInput.value = currentTarget.channel || 1;
+        channelInput.className = 'channel-input';
+        channelInput.placeholder = 'Ch';
+        channelInput.dataset.targetType = 'channel';
+        channelInput.addEventListener('change', (e) => handleTargetChange(e, key));
+        group.appendChild(channelInput);
+
+        const commandSelect = document.createElement('select');
+        commandSelect.className = 'command-select';
+        commandSelect.innerHTML = COMMAND_OPTIONS;
+        commandSelect.value = currentTarget.command || 'Note On';
+        commandSelect.dataset.targetType = 'command';
+        commandSelect.addEventListener('change', (e) => handleTargetChange(e, key));
+        group.appendChild(commandSelect);
+
+        const paramInput = document.createElement('input');
+        paramInput.type = 'number';
+        paramInput.min = 0;
+        paramInput.max = 127;
+        paramInput.value = currentTarget.param !== undefined ? currentTarget.param : '';
+        paramInput.className = 'param-input';
+        paramInput.placeholder = 'Nr (0-127)';
+        paramInput.dataset.targetType = 'param';
+        paramInput.addEventListener('change', (e) => handleTargetChange(e, key));
+        
+        if (currentTarget.command === 'Pitch Bend' || currentTarget.command === 'Channel Pressure') {
+             paramInput.style.display = 'none';
+        }
+        
+        commandSelect.addEventListener('change', (e) => {
+            const command = e.target.value;
+            if (command === 'Pitch Bend' || command === 'Channel Pressure') {
+                 paramInput.style.display = 'none';
+            } else {
+                 paramInput.style.display = 'block';
+            }
+        });
+        
+        group.appendChild(paramInput);
+
+        return group;
+    }
+    
+    function updateTargetInputGroup(group, newTargetParams) {
+        group.querySelector('.channel-input').value = newTargetParams.channel;
+        group.querySelector('.command-select').value = newTargetParams.command;
+        
+        const paramInput = group.querySelector('.param-input');
+        paramInput.value = newTargetParams.param !== undefined ? newTargetParams.param : '';
+        
+        if (newTargetParams.command === 'Pitch Bend' || newTargetParams.command === 'Channel Pressure') {
+             paramInput.style.display = 'none';
+        } else {
+             paramInput.style.display = 'block';
+        }
+    }
+
+    function handleTargetChange(e, key) {
+        const targetType = e.target.dataset.targetType;
+        let value = e.target.value;
+        const currentMapping = mappings[key];
+
+        if (targetType === 'channel') {
+            value = Math.max(1, Math.min(16, parseInt(value) || 1));
+            e.target.value = value;
+            currentMapping.channel = value;
+        } else if (targetType === 'command') {
+            currentMapping.command = value;
+            
+            const paramInput = e.target.closest('.input-group').querySelector('.param-input');
+             if (value === 'Pitch Bend' || value === 'Channel Pressure') {
+                 currentMapping.param = undefined; 
+            } else {
+                 if(currentMapping.param === undefined) currentMapping.param = 0;
+            }
+
+        } else if (targetType === 'param') {
+            value = Math.max(0, Math.min(127, parseInt(value) || 0));
+            e.target.value = value;
+            currentMapping.param = value;
+        }
+
+        mappings[key] = currentMapping;
+    }
+
+
+    // --- Logika wczytywania i zapisywania ---
+
+    // Nowa funkcja do obsługi wczytanego pliku
+    function handleLoadedFile(file) {
+         const reader = new FileReader();
+         reader.onload = (event) => {
+            try {
+                const loadedMappings = JSON.parse(event.target.result);
+                if (typeof loadedMappings !== 'object' || loadedMappings === null) {
+                    throw new Error("Nieprawidłowy format pliku.");
+                }
+
+                mappings = loadedMappings;
+                rebuildTableUI();
+                sessionFileName = file.name; // Ustaw nazwę sesji
+                updateSessionTitle();
+                setStatus(`Mapowanie wczytane pomyślnie z pliku: **${sessionFileName}**`, true, 'ok');
+            } catch (err) {
+                alert("Błąd podczas wczytywania pliku: " + err.message);
+                console.error(err);
+            } finally {
+                loadFileInput.value = ''; 
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    saveBtn.addEventListener('click', () => {
+        if (!programmingMode) {
+             alert("Aby zapisać mapowania, włącz 'Tryb Programowania'.");
+             return;
+        }
+        if (Object.keys(mappings).length === 0) {
+            alert("Brak mapowań do zapisania.");
+            return;
+        }
+        
+        let defaultName = sessionFileName.replace('.json', '');
+        if (defaultName === 'Bez nazwy sesji') defaultName = 'midi_mapa_parametryczna';
+
+        const filename = prompt("Podaj nazwę pliku do zapisania (bez rozszerzenia .json):", defaultName);
+        if (!filename) return;
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mappings, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `${filename}.json`);
+        document.body.appendChild(downloadAnchorNode); 
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        
+        sessionFileName = `${filename}.json`; // Ustaw nową nazwę sesji
+        updateSessionTitle();
+        setStatus(`Mapowanie zapisane do pliku: **${sessionFileName}**`, true, 'ok');
+    });
+
+    loadBtnTrigger.addEventListener('click', () => {
+        if (!programmingMode) {
+             alert("Aby wczytać mapowania, włącz 'Tryb Programowania'.");
+             return;
+        }
+        loadFileInput.click();
+    });
+
+    loadFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleLoadedFile(file);
+    });
+
+    clearBtn.addEventListener('click', ()=> {
+        if (!programmingMode) {
+             alert("Aby wyczyścić listę, włącz 'Tryb Programowania'.");
+             return;
+        }
+        if(confirm("Czy na pewno chcesz wyczyścić całą listę mapowań i zresetować nazwę sesji?")) {
+            mappings = {};
+            learningKey = null; 
+            sessionFileName = 'Bez nazwy sesji'; // Reset nazwy sesji
+            rebuildTableUI();
+            updateSessionTitle();
+            updateProgrammingModeUI();
+        }
+    });
+
+    function rebuildTableUI() {
+        mappingListBody.innerHTML = ''; 
+        for (const [key, targetParams] of Object.entries(mappings)) {
+            const parts = key.split('_'); 
+            
+            const originalChannel = parseInt(parts[0].replace('Ch', ''));
+            let originalCommandName = parts[1];
+            for (const name of Object.values(MIDI_COMMANDS)) {
+                if (name.replace(/\s/g, '') === originalCommandName) {
+                    originalCommandName = name;
+                    break;
+                }
+            }
+            
+            const originalParam = parts.length > 2 ? parseInt(parts[2]) : undefined;
+            
+            const originalParsedMsg = {
+                channel: originalChannel,
+                command: originalCommandName,
+                paramKey: originalParam,
+            };
+
+            const row = createMappingRow(key, originalParsedMsg, targetParams);
+            mappingListBody.appendChild(row);
+        }
+    }
+    
+    // --- Obsługa Drag and Drop ---
+    
+    // Zapobieganie domyślnemu zachowaniu przeglądarki
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false); // Globalnie, aby zapobiec otwarciu pliku w nowej karcie
+    });
+
+    function preventDefaults (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Zmiana stylu przy przeciąganiu nad obszarem
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+          if (programmingMode) dropZone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+          dropZone.classList.remove('dragover');
+      }, false);
+    });
+
+    // Obsługa upuszczenia pliku
+    dropZone.addEventListener('drop', (e) => {
+        if (!programmingMode) {
+             setStatus("Nie można wczytać pliku w Trybie Pracy. Włącz 'Tryb Programowania'.", false, 'error');
+             return;
+        }
+        let dt = e.dataTransfer;
+        let files = dt.files;
+
+        if (files.length > 0 && files[0].name.endsWith('.json')) {
+            handleLoadedFile(files[0]);
+        } else {
+             setStatus("Upuszczony plik musi być plikiem .json.", false, 'error');
+        }
+    }, false);
+
+
+</script>
+</body>
+</html>
