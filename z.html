@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Z</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background-color: #f0f0f0;
+      cursor: pointer;
+      overflow: hidden;
+      position: relative;
+      font-family: Arial, sans-serif;
+    }
+
+    #napis {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: red;
+      font-size: 4em;
+      font-weight: bold;
+      text-align: center;
+      transition: opacity 0.2s ease;
+    }
+
+    #obrazek {
+      position: absolute;
+      bottom: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 90%;
+      max-height: 90%;
+      transition: bottom 1s ease;
+    }
+
+    #obrazek.pokaz {
+      bottom: 0%; /*na dole strony */
+    }
+  </style>
+</head>
+<body onclick="pokazObrazek()">
+  <div id="napis">kliknij mnie</div>
+  <img id="obrazek" src="zenia.png">
+
+  <script>
+    function pokazObrazek() {
+      const img = document.getElementById('obrazek');
+      const napis = document.getElementById('napis');
+
+      // Ukryj napis
+      napis.style.opacity = '0';
+
+      // Pokaż obrazek
+      img.classList.add('pokaz');
+
+      // Po 3 sekundach schowaj obrazek
+      setTimeout(() => {
+        img.classList.remove('pokaz');
+        napis.style.opacity = '1'; // Przywróć napis
+      }, 1500);
+    }
+  </script>
+</body>
+</html>
