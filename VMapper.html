@@ -1,0 +1,2486 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>VJ Mapper V98 (Zmiana: Poprawiony Podgląd Zaznaczonego Klipu)</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            user-select: none; 
+            background: #111;
+        }
+        
+        #controlPanel { 
+            flex-grow: 0; 
+            flex-shrink: 0;
+            min-width: 300px; 
+            padding: 20px; 
+            background: #222; 
+            color: #fff; 
+            box-sizing: border-box; 
+            overflow-y: auto; 
+        }
+
+        #splitter {
+            width: 8px;
+            background: #444;
+            cursor: ew-resize; 
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        #outputContainer { 
+            flex-grow: 1; 
+            flex-shrink: 1;
+            min-width: 400px; 
+            position: relative; 
+            background: #000;
+            display: flex; 
+            padding: 10px; 
+            box-sizing: border-box;
+        } 
+        
+        .split-panel {
+            flex-basis: 50%; 
+            flex-shrink: 0;
+            flex-grow: 0;
+            margin: 0 5px; 
+            display: flex;
+            flex-direction: column; 
+            justify-content: flex-start; 
+            align-items: center;
+            position: relative;
+            background: #111;
+            padding-top: 10px; 
+        } 
+        
+        #previewContainer {
+             padding-top: 10px; 
+        }
+
+        #loadedSettingsInfo {
+            color: #f1c40f; 
+            font-weight: bold; 
+            font-size: 1.4em; 
+            margin-bottom: 8px !important; 
+            text-align: center;
+        }
+        
+        #secondOutputContainer {
+            border: 1px solid #333; 
+        }
+        
+        #secondOutputContainer .drop-zone-wrapper {
+            width: 90%; 
+            height: 20%; 
+            margin-top: 10px;
+            margin-bottom: 20px;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #secondOutputContainer #dropZone {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 4px dashed #777; 
+            color: #aaa;
+            font-size: 1.2em;
+            text-shadow: 1px 1px 2px #000;
+            cursor: pointer;
+        }
+        
+        #secondOutputContainer #dropZone.drag-over, #secondOutputContainer #dropZone:hover {
+            border-color: #007bff;
+            background-color: #333;
+            color: #fff;
+        }
+        
+        #secondOutputContainer #dropZone .info-text {
+            font-size: 0.8em;
+            color: #777;
+            margin-top: 10px;
+            text-align: center; 
+        }
+        
+        #previewContainer #mainPreview {
+            width: 100%;
+            height: 100%; 
+            max-height: 100%;
+            object-fit: contain; 
+            flex-grow: 1; 
+            margin-top: 150px; 
+        }
+
+
+        #fileListContainer {
+            width: 90%;
+            flex-grow: 1;
+            color: #fff;
+            overflow-y: auto;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+            margin-bottom: 10px;
+        }
+        
+        #fileListContainer h3 {
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            color: #bbb;
+        }
+        
+        .playlist-actions {
+             display: flex;
+             gap: 5px;
+             margin-bottom: 10px;
+             flex-wrap: wrap; 
+        }
+        .playlist-actions button {
+            flex-grow: 1; 
+            padding: 10px;
+            font-weight: bold;
+            border: 1px solid #c0392b; 
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+            margin-right: 0; 
+        }
+        
+        #addStopClipButton {
+            background: #333; 
+            color: #e74c3c; 
+            border-color: #c0392b;
+        }
+        #addStopClipButton:hover {
+             background: #444;
+             color: #ff6347;
+             border-color: #e74c3c;
+        }
+        
+        #removeSelectedClipButton {
+            background: #555;
+            color: #f1c40f; 
+            border-color: #f39c12;
+        }
+        #removeSelectedClipButton:hover {
+            background: #666;
+            color: #ffeaa7;
+            border-color: #e67e22;
+        }
+        
+        #clearPlaylistButton {
+            background: #444;
+            color: #9b59b6; 
+            border-color: #8e44ad;
+        }
+        #clearPlaylistButton:hover {
+            background: #555;
+            color: #c39bd3;
+            border-color: #9b59b6;
+        }
+
+
+        #fileList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.9em;
+        }
+        
+        #fileList li {
+            position: relative; 
+            padding: 5px 5px 5px 10px; 
+            margin-bottom: 3px;
+            background: #333;
+            cursor: grab; 
+            transition: background 0.2s, border 0.2s;
+            border-left: 5px solid transparent;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: white; 
+        }
+        
+        .progress-bar-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0; 
+            background: rgba(26, 188, 156, 0.3); 
+            z-index: 1; 
+            pointer-events: none; 
+        }
+        
+        .clip-duration {
+            float: right;
+            font-size: 0.9em;
+            color: #bbb;
+            z-index: 2; 
+            position: relative; 
+            padding-right: 5px; 
+            margin-left: 10px; 
+            font-weight: bold;
+        }
+        
+        .clip-name-text {
+             z-index: 2;
+             position: relative;
+             display: inline-block;
+        }
+        
+        #fileList li.stop-clip {
+            background: #333; 
+            color: #e74c3c; 
+            font-weight: normal; 
+            border-left-color: #c0392b; 
+        }
+        
+        #fileList li.missing-file {
+            background: #663333; 
+            color: #ffcccc; 
+            border-left-color: #e74c3c; 
+            font-style: italic;
+        }
+        #fileList li.missing-file:hover {
+             background: #774444; 
+             color: #ffdddd;
+        }
+        #fileList li.missing-file.active {
+            background: #c0392b; 
+            border-left-color: #fff;
+            color: white;
+            font-style: normal;
+        }
+        
+        #fileList li.drag-before {
+            border-top: 2px solid #1abc9c; 
+        }
+        #fileList li.drag-after {
+            border-bottom: 2px solid #1abc9c; 
+        }
+
+        #fileList li:hover {
+            background: #444;
+        }
+        
+        #fileList li.stop-clip:hover {
+            background: #444;
+            color: #ff6347; 
+        }
+        
+        #fileList li.active {
+            background: #007bff;
+            border-left-color: #fff;
+            font-weight: bold;
+            color: white;
+        }
+        #fileList li.active .progress-bar-background {
+            background: rgba(0, 150, 255, 0.4); 
+        }
+
+        #fileList li.stop-clip.active, #fileList li.missing-file.active {
+            color: white; 
+        }
+
+
+        canvas { display: block; width: 100%; height: 100%; }
+        .controls { margin-top: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        button { padding: 8px 12px; cursor: pointer; background: #007bff; color: white; border: none; margin-right: 5px; }
+        button#openOutputButton { margin-top: 15px; display: block; width: 100%; }
+        .video-controls-group { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 5px; 
+            margin-bottom: 10px;
+        }
+        .video-controls-group button { 
+             background: #34495e; 
+             flex-grow: 1; 
+             margin: 0; 
+        }
+        .fade-controls button { background: #e67e22; margin-top: 5px;}
+        
+        .range-control { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 8px; 
+            cursor: ns-resize; 
+            padding: 5px 0;
+            border-bottom: 1px dashed #333;
+        }
+        .range-label { 
+            flex-basis: 120px; 
+            flex-shrink: 0; 
+            flex-grow: 0;
+        } 
+        .input-group { display: flex; align-items: center; flex-grow: 1; }
+        input[type="range"] { flex-grow: 1; min-width: 50px; margin-right: 10px; }
+        input[type="number"] { 
+            width: 70px; 
+            padding: 5px; 
+            box-sizing: border-box; 
+            background: #444; 
+            color: white; 
+            border: 1px solid #555; 
+            text-align: right; 
+            cursor: ns-resize; 
+        }
+        .fade-time-label { margin-left: 10px; font-size: 0.9em; color: #bbb; }
+        
+        .reset-button {
+            background: #c0392b; 
+            color: white;
+            border: 1px solid #770000;
+            width: 25px;
+            height: 25px;
+            padding: 0;
+            line-height: 1;
+            font-weight: bold;
+            font-size: 0.9em;
+            flex-shrink: 0;
+            margin-right: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .reset-button:hover {
+            background: #e74c3c;
+        }
+
+
+        #nextClipPlayButton {
+            font-weight: bold;
+            display: block; 
+            width: 100%; 
+            box-sizing: border-box;
+            margin: 0 0 10px 0; 
+            background: #1abc9c; 
+        }
+
+        #crossFadePlayButton {
+             background: #8e44ad; 
+             font-weight: bold;
+             display: block;
+             width: 100%;
+             margin-top: 10px;
+        }
+        
+        #fadeStopButton {
+             background: #c0392b; 
+             font-weight: bold;
+             display: block;
+             width: 100%;
+             margin-top: 10px;
+        }
+        
+        .controls.playlist-controls {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap; 
+        }
+
+        #controlPanel .drop-zone-wrapper { display: none; }
+        
+        #videoSourceInfo {
+            position: absolute;
+            top: 5px; 
+            left: 5px;
+            right: 5px;
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-size: 0.9em;
+            z-index: 5;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
+            height: 95px; 
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #videoSourceInfo .clip-info-row {
+            display: flex;
+            justify-content: space-between; 
+            align-items: center;
+            width: 100%;
+        }
+        #videoSourceInfo .clip-name {
+            font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            font-size: 1.5em; 
+            line-height: 1.2; 
+            flex-grow: 1; 
+            padding-right: 10px;
+        }
+        #videoSourceInfo .total-duration {
+            font-size: 2.25em; 
+            color: #007bff; 
+            font-weight: bold;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        #videoSourceInfo .time-display {
+            color: #fff; 
+            font-weight: bold;
+            font-size: 3.6em; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.1;
+            display: flex; 
+            justify-content: space-between; 
+            width: 100%;
+        }
+        #videoSourceInfo .time-display .counting-up {
+            color: #2ecc71; 
+        }
+        #videoSourceInfo .time-display .counting-down {
+            color: #f39c12; 
+        }
+        
+        /* STYL DLA WSKAŹNIKA FADE */
+        #fadeLevelIndicator {
+            position: absolute;
+            top: 110px; 
+            left: 5px;
+            right: 5px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            font-size: 0.9em;
+            height: 30px;
+            z-index: 5;
+        }
+
+        #fadeLevelIndicator label {
+            flex-shrink: 0;
+            margin-right: 10px;
+            font-weight: bold;
+            color: #bbb;
+        }
+        
+        #fadeLevelIndicator input[type="range"] {
+            flex-grow: 1;
+            margin-right: 10px;
+            pointer-events: none; /* Tylko do podglądu */
+            accent-color: #1abc9c;
+        }
+
+        #fadeLevelIndicator #fadeValueDisplay {
+            flex-shrink: 0;
+            font-weight: bold;
+            color: #1abc9c;
+            width: 40px;
+            text-align: right;
+        }
+        
+        /* NOWY STYL: Podgląd pierwszej klatki */
+        #firstFrameWrapper {
+            position: absolute;
+            top: 155px; /* Poniżej fade indicator */
+            right: 15px;
+            width: 25%; /* 1/4 rozmiaru głównego podglądu */
+            height: auto; 
+            background: #000;
+            border: 2px solid #555;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0; /* Ukryty domyślnie */
+            transition: opacity 0.3s;
+            pointer-events: none; /* Nie blokuje interakcji */
+        }
+
+        #firstFramePreview {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        #firstFrameLabel {
+            font-size: 0.7em;
+            color: #ccc;
+            background: rgba(0, 0, 0, 0.5);
+            width: 100%;
+            text-align: center;
+            padding: 2px 0;
+            box-sizing: border-box;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="controlPanel">
+        <h2>Kontrola Wideo</h2>
+        
+        <div class="controls drop-zone-wrapper">
+             <input type="file" id="fileInput" accept="video/mp4, .hvjm" style="display: none;" multiple> 
+             <div id="dropZoneInControlPanel"></div>
+        </div>
+        <div class="controls playlist-controls">
+            <h3>Sterowanie Playlistą</h3>
+            
+            <button id="nextClipPlayButton">▶️ Odtwórz (Następny)</button>
+            
+            <label style="margin-top: 5px; display: block; width: 100%; margin-bottom: 10px;">
+                <input type="checkbox" id="autoNextCheckbox"> Auto Następny (Odtwarzanie po zakończeniu)
+            </label>
+            
+            <div class="range-control" style="border: none; padding-top: 10px;">
+                <label class="range-label" for="crossFadeDuration">Czas przejścia (Fade-Next) (0.1s):</label>
+                <div class="input-group">
+                    <input type="number" id="crossFadeDuration" min="1" max="1000" step="1" value="10" data-target="crossFadeTimeLabel">
+                    <span id="crossFadeTimeLabel" class="fade-time-label"></span>
+                </div>
+            </div>
+            
+            <button id="crossFadePlayButton">↔️ Odtwórz przez ściemnienie (Zaznaczony)</button>
+            <button id="fadeStopButton">⏹️ Zatrzymaj przez ściemnienie</button>
+        </div>
+
+        <div class="controls video-controls">
+            <h3>Sterowanie Odtwarzaniem</h3>
+            
+            <div class="range-control" style="border: none; padding-top: 0px;">
+                <label class="range-label" for="volumeRange">Głośność Podglądu (%):</label>
+                <div class="input-group">
+                    <input type="range" id="volumeRange" min="0" max="100" step="1" value="100" data-target="volumeNumber">
+                    <input type="number" id="volumeNumber" min="0" max="100" step="1" value="100" data-target="volumeRange">
+                </div>
+            </div>
+            
+            <div class="video-controls-group">
+                <button id="playButton">▶️ Play (Zaznaczony)</button>
+                <button id="hardStopButton">■ Stop</button> 
+                <button id="pauseButton">⏸️ Pause</button>
+                <button id="setTimeButton">⏪ Set to 10s</button> 
+            </div>
+
+            <label style="margin-top: 10px;">
+                <input type="checkbox" id="loopCheckbox"> Zapętlaj (Loop)
+            </label>
+        </div>
+
+        <div class="controls fade-controls">
+            <h3>Przejścia (Manualny Fade)</h3>
+            
+            <div class="range-control">
+                <label class="range-label" for="fadeDuration">Czas przejścia (0.1s):</label>
+                <div class="input-group">
+                    <input type="number" id="fadeDuration" min="1" max="1000" step="1" value="5" data-target="fadeTimeLabel"> 
+                    <span id="fadeTimeLabel" class="fade-time-label"></span>
+                </div>
+            </div>
+            
+            <button id="fadeOutButton">Fade Out (do 0%)</button>
+            <button id="fadeInButton">Fade In (do 100%)</button>
+        </div>
+        <div class="controls">
+            <button id="openOutputButton">2. Otwórz Wyjście Modyfikowane (Drugi Monitor)</button>
+        </div>
+
+        <div class="controls">
+            <h3>Kontrola Kształtu i Koloru</h3>
+            
+            <button id="resetAllModifiersButton" style="width: 100%; margin-bottom: 15px; background: #3498db; font-weight: bold;">🔄 Resetuj wszystkie modyfikatory</button>
+            
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="brightnessRange" data-number="brightnessNumber" data-default="100" data-is-brightness="true">R</button>
+                <label class="range-label" for="brightnessRange">Jasność Wideo (%):</label>
+                <div class="input-group">
+                    <input type="range" id="brightnessRange" min="0" max="100" step="1" value="100" data-target="brightnessNumber">
+                    <input type="number" id="brightnessNumber" min="0" max="100" step="1" value="100" data-target="brightnessRange">
+                </div>
+            </div>
+            
+            <h4>Skalowanie</h4>
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="widthRange" data-number="widthNumber" data-default="1.0">R</button>
+                <label class="range-label" for="widthRange">Szerokość Wideo (X):</label>
+                <div class="input-group">
+                    <input type="range" id="widthRange" min="0" max="10" step="0.01" value="1.0" data-target="widthNumber">
+                    <input type="number" id="widthNumber" min="0" max="10" step="0.01" value="1.0" data-target="widthRange">
+                </div>
+            </div>
+
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="heightRange" data-number="heightNumber" data-default="1.0">R</button>
+                <label class="range-label" for="heightRange">Wysokość Wideo (Y):</label>
+                <div class="input-group">
+                    <input type="range" id="heightRange" min="0" max="10" step="0.01" value="1.0" data-target="heightNumber">
+                    <input type="number" id="heightNumber" min="0" max="10" step="0.01" value="1.0" data-target="heightRange">
+                </div>
+            </div>
+            
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="scaleRange" data-number="scaleNumber" data-default="1.0">R</button>
+                <label class="range-label" for="scaleRange">Zoom (Skala proporcjonalna):</label>
+                <div class="input-group">
+                    <input type="range" id="scaleRange" min="0.1" max="10" step="0.01" value="1.0" data-target="scaleNumber"> 
+                    <input type="number" id="scaleNumber" min="0.1" max="10" step="0.01" value="1.0" data-target="scaleRange"> 
+                </div>
+            </div>
+            
+            <h4>Obrót</h4>
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="rotateXRange" data-number="rotateXNumber" data-default="0">R</button>
+                <label class="range-label" for="rotateXRange">Obrót X (Stopnie):</label>
+                <div class="input-group">
+                    <input type="range" id="rotateXRange" min="0" max="360" step="1" value="0" data-target="rotateXNumber">
+                    <input type="number" id="rotateXNumber" min="0" max="360" step="1" value="0" data-target="rotateXRange">
+                </div>
+            </div>
+
+             <div class="range-control">
+                <button class="reset-button" type="button" data-range="rotateYRange" data-number="rotateYNumber" data-default="0">R</button>
+                <label class="range-label" for="rotateYRange">Obrót Y (Stopnie):</label>
+                <div class="input-group">
+                    <input type="range" id="rotateYRange" min="0" max="360" step="1" value="0" data-target="rotateYNumber">
+                    <input type="number" id="rotateYNumber" min="0" max="360" step="1" value="0" data-target="rotateYRange">
+                </div>
+            </div>
+
+             <div class="range-control">
+                <button class="reset-button" type="button" data-range="rotateZRange" data-number="rotateZNumber" data-default="0">R</button>
+                <label class="range-label" for="rotateZRange">Obrót Z (Stopnie):</label>
+                <div class="input-group">
+                    <input type="range" id="rotateZRange" min="-180" max="180" step="1" value="0" data-target="rotateZNumber">
+                    <input type="number" id="rotateZNumber" min="-180" max="180" step="1" value="0" data-target="rotateZRange">
+                </div>
+            </div>
+            
+            <h4>Pozycja</h4>
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="posXRange" data-number="posXNumber" data-default="0">R</button>
+                <label class="range-label" for="posXRange">Pozycja X:</label>
+                <div class="input-group">
+                    <input type="range" id="posXRange" min="-10" max="10" step="0.01" value="0" data-target="posXNumber">
+                    <input type="number" id="posXNumber" min="-10" max="10" step="0.01" value="0" data-target="posXRange">
+                </div>
+            </div>
+            
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="posYRange" data-number="posYNumber" data-default="0">R</button>
+                <label class="range-label" for="posYRange">Pozycja Y:</label>
+                <div class="input-group">
+                    <input type="range" id="posYRange" min="-10" max="10" step="0.01" value="0" data-target="posYNumber">
+                    <input type="number" id="posYNumber" min="-10" max="10" step="0.01" value="0" data-target="posYRange">
+                </div>
+            </div>
+            
+            <div class="range-control">
+                <button class="reset-button" type="button" data-range="posZRange" data-number="posZNumber" data-default="0.1">R</button>
+                <label class="range-label" for="posZRange">Pozycja Z (Odległość):</label>
+                <div class="input-group">
+                    <input type="range" id="posZRange" min="-10" max="10" step="0.01" value="0.1" data-target="posZNumber"> 
+                    <input type="number" id="posZNumber" min="-10" max="10" step="0.01" value="0.1" data-target="posZRange">
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <div id="splitter"></div>
+
+    <div id="outputContainer">
+        <video id="videoSource" muted playsinline style="display: none;"></video>
+        
+        <div id="secondOutputContainer" class="split-panel" data-label="PLAYLISTA / MAPOWANIE">
+            
+            <div id="loadedSettingsInfo"></div> 
+            
+            <button id="saveSettingsButton" style="width: 90%; margin-bottom: 15px; background: #27ae60; font-weight: bold;">💾 Zapisz ustawienia (.HVJM)</button>
+            
+            <div class="drop-zone-wrapper">
+                <div id="dropZone">
+                    UPUŚ PLIKI WIDEO MP4
+                    <span class="info-text">(lub kliknij, by wybrać pliki lub plik *.HVJM)</span>
+                    <span class="info-text" style="margin-top: 5px;">Możesz też upuścić **CAŁY KATALOG**. System automatycznie znajdzie plik **.HVJM** i pliki wideo.</span>
+                </div>
+            </div>
+            <div id="fileListContainer">
+                <h3>Lista Wczytanych Plików:</h3>
+                
+                <div class="controls playlist-actions"> 
+                    <button id="addStopClipButton">➕ Dodaj STOP</button>
+                    <button id="removeSelectedClipButton">❌ Usuń wybrany</button> 
+                    <button id="clearPlaylistButton">🧹 Wyczyść listę</button>
+                </div>
+                
+                <ul id="fileList">
+                    <li style="color: #555; background: #222; cursor: default;">Brak wczytanych plików.</li>
+                </ul>
+            </div>
+            </div>
+
+        <div id="previewContainer" class="split-panel" data-label="Podgląd Niemodyfikowany">
+            <div id="videoSourceInfo">
+                <div class="clip-info-row"> <span id="clipNameDisplay" class="clip-name">Brak pliku</span>
+                    <span id="totalDurationDisplay" class="total-duration">--:--</span> </div>
+                <span id="timeDisplay" class="time-display">00:00 | 00:00</span>
+            </div>
+            
+            <div id="fadeLevelIndicator">
+                <label for="currentFadeLevelDisplay">Poziom Jasności Wideo:</label>
+                <input type="range" id="currentFadeLevelDisplay" min="0" max="100" step="1" value="100" disabled>
+                <span id="fadeValueDisplay">100%</span>
+            </div>
+            
+            <div id="firstFrameWrapper">
+                <video id="firstFramePreview" muted playsinline></video>
+                <span id="firstFrameLabel">Zaznaczony klip (Pierwsza klatka)</span>
+            </div>
+            
+            <video id="mainPreview" playsinline></video>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, videoTexture, videoMesh;
+        let externalRenderer = null; 
+        let outputWindow = null;
+        let animationRunning = false;
+        
+        let isFading = false;
+        let fadeTargetBrightness = 100; 
+        let fadeDurationMs = 0; 
+        let fadeStartTime = 0; 
+        let fadeStartValue = 0; // Ustawione na 0, aby wymusić czarny ekran na starcie
+        let currentBrightnessValue = 0; // AKTUALNA JASNOŚĆ WYJŚCIA
+        let fadeCallback = null; 
+        
+        let fadeTargetVolume = 100; 
+        let fadeStartVolume = 100; 
+        let currentVolumeValue = 100; 
+        
+        let isFadingOutBeforeEnd = false; 
+        const PRE_END_FADE_STEPS = 5; 
+
+        let domUpdateInterval; 
+        
+        let filePlaylist = [];
+        let currentFileIndex = -1; 
+        let loadedFileIndex = -2; // -2: brak wczytanego pliku, -1: wczytany klip stop
+
+        let draggedItem = null; 
+        
+        let activeLiElement = null; 
+        
+        const FADE_DURATION_DEFAULT_VALUE = 5; // 0.5s (500ms) - for manual fade duration
+
+        // ZMIENNA GLOBALNA DO ZARZĄDZANIA TYMCZASOWYM URL DLA PODGLĄDU PIERWSZEJ KLATKI
+        let tempFirstFrameUrl = null; 
+
+        const video = document.getElementById('videoSource');
+        const mainPreview = document.getElementById('mainPreview'); 
+        const fileInput = document.getElementById('fileInput'); 
+        const dropZone = document.getElementById('dropZone'); 
+        const fileListElement = document.getElementById('fileList'); 
+        const nextClipPlayButton = document.getElementById('nextClipPlayButton');
+        const crossFadePlayButton = document.getElementById('crossFadePlayButton'); 
+        const fadeStopButton = document.getElementById('fadeStopButton'); 
+        const addStopClipButton = document.getElementById('addStopClipButton'); 
+        const removeSelectedClipButton = document.getElementById('removeSelectedClipButton'); 
+        const clearPlaylistButton = document.getElementById('clearPlaylistButton'); 
+        const saveSettingsButton = document.getElementById('saveSettingsButton'); 
+        const autoNextCheckbox = document.getElementById('autoNextCheckbox'); 
+        
+        const controlPanel = document.getElementById('controlPanel');
+        const splitter = document.getElementById('splitter');
+        const brightnessRange = document.getElementById('brightnessRange');
+        const brightnessNumber = document.getElementById('brightnessNumber');
+        const fadeDurationInput = document.getElementById('fadeDuration');
+        const fadeTimeLabel = document.getElementById('fadeTimeLabel');
+        const crossFadeDurationInput = document.getElementById('crossFadeDuration'); 
+        const crossFadeTimeLabel = document.getElementById('crossFadeTimeLabel'); 
+        const loopCheckbox = document.getElementById('loopCheckbox');
+        
+        const volumeRange = document.getElementById('volumeRange');
+        const volumeNumber = document.getElementById('volumeNumber');
+        
+        const loadedSettingsInfo = document.getElementById('loadedSettingsInfo');
+
+        const resetAllModifiersButton = document.getElementById('resetAllModifiersButton'); 
+
+        const hardStopButton = document.getElementById('hardStopButton');
+        const setTimeButton = document.getElementById('setTimeButton'); 
+
+        const clipNameDisplay = document.getElementById('clipNameDisplay');
+        const totalDurationDisplay = document.getElementById('totalDurationDisplay'); 
+        const timeDisplay = document.getElementById('timeDisplay');
+        
+        const fadeLevelIndicator = document.getElementById('currentFadeLevelDisplay');
+        const fadeValueDisplay = document.getElementById('fadeValueDisplay');
+        
+        const firstFramePreview = document.getElementById('firstFramePreview');
+        const firstFrameWrapper = document.getElementById('firstFrameWrapper');
+
+
+        const MIN_CONTROL_WIDTH = 300; 
+        const MIN_OUTPUT_WIDTH = 400; 
+        
+        let isDragging = false;
+        
+        splitter.addEventListener('mousedown', startDrag);
+        
+        function startDrag(e) {
+            isDragging = true;
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+            document.body.style.userSelect = 'none'; 
+        }
+
+        function onDrag(e) {
+            if (!isDragging) return;
+
+            const totalWidth = document.body.clientWidth;
+            const newControlPanelWidth = e.clientX;
+            
+            if (newControlPanelWidth >= MIN_CONTROL_WIDTH && (totalWidth - newControlPanelWidth - splitter.offsetWidth) >= MIN_OUTPUT_WIDTH) {
+                controlPanel.style.width = newControlPanelWidth + 'px';
+            }
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.body.style.userSelect = 'auto';
+        }
+
+        function setInitialLayout() {
+            const defaultControlWidth = 350;
+            const totalWidth = document.body.clientWidth;
+            if (totalWidth - defaultControlWidth - splitter.offsetWidth >= MIN_OUTPUT_WIDTH) {
+                controlPanel.style.width = defaultControlWidth + 'px';
+            } else {
+                controlPanel.style.width = MIN_CONTROL_WIDTH + 'px';
+            }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '--:--';
+            const absSeconds = Math.floor(Math.abs(seconds));
+            const minutes = Math.floor(absSeconds / 60);
+            const remainingSeconds = absSeconds % 60;
+            const sign = seconds < 0 ? '-' : '';
+            return `${sign}${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        function setupThreeJS() {
+            if (externalRenderer) {
+                externalRenderer.dispose();
+                outputWindow.document.body.removeChild(outputWindow.document.getElementById('outputCanvas'));
+            }
+
+            const width = 1280;
+            const height = 720;
+            const aspect = width / height;
+
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.z = 1; 
+
+            videoTexture = new THREE.VideoTexture(video);
+            videoTexture.minFilter = THREE.LinearFilter;
+            videoTexture.magFilter = THREE.LinearFilter;
+            videoTexture.format = THREE.RGBAFormat;
+
+            const geometry = new THREE.PlaneGeometry(aspect * 2, 2); 
+            const material = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+            videoMesh = new THREE.Mesh(geometry, material);
+            scene.add(videoMesh);
+
+            updateMeshScale();
+            updateMeshRotation();
+            updateMeshPosition();
+            // Ustawienie aktualnej jasności, która powinna być 0 na starcie/po stopie
+            updateBrightness(currentBrightnessValue, false, true); 
+            
+            externalRenderer = new THREE.WebGLRenderer({ antialias: true });
+            externalRenderer.setSize(width, height);
+            externalRenderer.setPixelRatio(outputWindow.devicePixelRatio);
+            
+            const canvas = externalRenderer.domElement;
+            canvas.id = 'outputCanvas';
+            canvas.style.width = '100vw'; 
+            canvas.style.height = '100vh';
+            canvas.style.display = 'block'; 
+            
+            outputWindow.document.body.style.margin = '0';
+            outputWindow.document.body.style.overflow = 'hidden';
+            outputWindow.document.body.style.background = '#000';
+            outputWindow.document.body.appendChild(canvas);
+            
+            animationRunning = true;
+            animate();
+        }
+
+        function animate() {
+            if (!animationRunning || !externalRenderer) return; 
+
+            requestAnimationFrame(animate);
+            
+            if (isFading) {
+                const now = Date.now();
+                const elapsed = now - fadeStartTime;
+                const progress = Math.min(1, elapsed / fadeDurationMs);
+
+                currentBrightnessValue = fadeStartValue + (fadeTargetBrightness - fadeStartValue) * progress;
+                updateBrightness(currentBrightnessValue, true);
+                
+                currentVolumeValue = fadeStartVolume + (fadeTargetVolume - fadeStartVolume) * progress;
+                updateVolume(currentVolumeValue, true);
+
+                if (progress >= 1) {
+                    isFading = false;
+                    currentBrightnessValue = fadeTargetBrightness;
+                    currentVolumeValue = fadeTargetVolume;
+                    updateBrightness(currentBrightnessValue, true);
+                    updateVolume(currentVolumeValue, true);
+                    if (fadeCallback) {
+                        fadeCallback();
+                        fadeCallback = null; 
+                    }
+                }
+            }
+
+            externalRenderer.render(scene, camera);
+        }
+
+        function saveControlState() {
+            const controlsState = {
+                crossFadeDuration: crossFadeDurationInput.value,
+                fadeDuration: fadeDurationInput.value,
+                brightnessNumber: brightnessNumber.value, // Wartość docelowa
+                volumeNumber: volumeNumber.value,
+                widthNumber: document.getElementById('widthNumber').value,
+                heightNumber: document.getElementById('heightNumber').value,
+                scaleNumber: document.getElementById('scaleNumber').value,
+                rotateXNumber: document.getElementById('rotateXNumber').value,
+                rotateYNumber: document.getElementById('rotateYNumber').value,
+                rotateZNumber: document.getElementById('rotateZNumber').value,
+                posXNumber: document.getElementById('posXNumber').value,
+                posYNumber: document.getElementById('posYNumber').value,
+                posZNumber: document.getElementById('posZNumber').value,
+                loopCheckbox: loopCheckbox.checked,
+                autoNextCheckbox: autoNextCheckbox.checked,
+                // Zapisujemy aktualną jasność odtwarzania/stopu, aby wznowić, jeśli to możliwe
+                currentBrightness: currentBrightnessValue 
+            };
+            localStorage.setItem('vjMapperControlsState', JSON.stringify(controlsState));
+        }
+
+        function loadControlState() {
+            const savedState = localStorage.getItem('vjMapperControlsState');
+            if (!savedState) return;
+
+            const state = JSON.parse(savedState);
+
+            for (const key in state) {
+                const element = document.getElementById(key);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = state[key];
+                    } else {
+                        element.value = state[key];
+                    }
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+            
+            // Wczytanie faktycznej jasności odtwarzania/stopu z localStorage, ale jej nie aplikujemy,
+            // dopóki nie otworzy się wyjście modyfikowane.
+            if (state.currentBrightness !== undefined) {
+                 currentBrightnessValue = state.currentBrightness; 
+            } else {
+                 currentBrightnessValue = 0; 
+            }
+
+            // Ustawienie głośności
+            updateVolume(parseFloat(volumeNumber.value));
+        }
+
+        function startFadeAnimation(targetBrightness, steps = null, callback = null, targetVolume = null) {
+            if (!externalRenderer) return;
+            
+            isFading = true;
+            fadeStartValue = currentBrightnessValue;
+            fadeTargetBrightness = Math.max(0, Math.min(100, targetBrightness)); 
+            fadeStartTime = Date.now();
+            fadeCallback = callback;
+            
+            fadeStartVolume = currentVolumeValue;
+            fadeTargetVolume = targetVolume !== null ? Math.max(0, Math.min(100, targetVolume)) : fadeStartVolume;
+
+            const durationInSteps = steps !== null ? steps : parseInt(fadeDurationInput.value);
+            fadeDurationMs = durationInSteps * 100; 
+            
+            if (fadeDurationMs <= 0) {
+                isFading = false;
+                currentBrightnessValue = fadeTargetBrightness;
+                currentVolumeValue = fadeTargetVolume;
+                updateBrightness(currentBrightnessValue, true);
+                updateVolume(currentVolumeValue, true);
+                if (fadeCallback) {
+                    fadeCallback();
+                    fadeCallback = null;
+                }
+            }
+        }
+
+        function stopVideoAndSetBrightnessToZero() {
+            if (videoMesh) {
+                isFading = false;
+                updateBrightness(0, true); // Ustawienie aktualnej jasności na 0%
+                video.pause();
+                video.currentTime = 0; 
+            }
+        }
+
+        function loadVideo(fileItem, autoplay, forceLoad, callback = null) {
+            const item = fileItem;
+            
+            if (item.isStopClip || item.isMissingFile) {
+                if (callback) callback(true);
+                return;
+            }
+
+            // Sprawdzenie, czy klip jest już załadowany (i to jest ten sam plik), jeśli nie wymuszamy
+            if (item.url && loadedFileIndex === filePlaylist.indexOf(item) && !forceLoad) {
+                if (callback) callback(true);
+                return;
+            }
+
+            // ZWOLNIENIE URL POPRZEDNIO ZAŁADOWANEGO PLIKU
+            if (loadedFileIndex >= 0 && filePlaylist[loadedFileIndex] && filePlaylist[loadedFileIndex].url) {
+                 URL.revokeObjectURL(filePlaylist[loadedFileIndex].url);
+                 filePlaylist[loadedFileIndex].url = null;
+            }
+            
+            const newUrl = URL.createObjectURL(item.file);
+            item.url = newUrl; 
+            video.src = newUrl;
+            mainPreview.src = newUrl;
+            
+            loadedFileIndex = filePlaylist.indexOf(item); 
+            
+            video.pause();
+            video.currentTime = 0;
+            mainPreview.pause();
+            mainPreview.currentTime = 0;
+            
+            if (item.file.type.startsWith('video/')) {
+                video.onloadedmetadata = () => {
+                    // Długość powinna już być załadowana przez updateFileDuration, ale sprawdzamy:
+                    if (item.duration === null) {
+                        item.duration = video.duration;
+                        renderFileList();
+                    }
+                    
+                    if (videoTexture) {
+                         const aspect = video.videoWidth / video.videoHeight;
+                         const geometry = new THREE.PlaneGeometry(aspect * 2, 2); 
+                         videoMesh.geometry = geometry;
+                         updateMeshScale();
+                         videoMesh.needsUpdate = true;
+                    }
+                    
+                    video.onloadedmetadata = null; 
+                    if (autoplay) {
+                        tryToPlay();
+                    }
+                    if (callback) callback(true);
+                };
+                
+                video.onerror = (e) => {
+                    console.error("Błąd ładowania wideo:", e);
+                    item.isMissingFile = true; 
+                    loadedFileIndex = -2;
+                    renderFileList();
+                    updatePreviewInfo();
+                    if (callback) callback(false);
+                };
+            } else {
+                // Jeśli nie wideo (np. .hvjm), to traktujemy jako błąd
+                item.isMissingFile = true;
+                loadedFileIndex = -2;
+                renderFileList();
+                updatePreviewInfo();
+                if (callback) callback(false);
+            }
+        }
+        
+        // NOWA FUNKCJA DO ASYNCHRONICZNEGO ŁADOWANIA DŁUGOŚCI PLIKU
+        async function updateFileDuration(item) {
+            // Pomijamy klipy stop, brakujące pliki lub te, które już mają długość
+            if (item.duration !== null || item.isStopClip || item.isMissingFile || item.file.type.startsWith('virtual/')) return;
+
+            return new Promise(resolve => {
+                const tempVideo = document.createElement('video');
+                tempVideo.style.display = 'none';
+                tempVideo.preload = 'metadata';
+                tempVideo.muted = true;
+                tempVideo.playsInline = true;
+                document.body.appendChild(tempVideo); // Musi być w DOM, aby wczytać metadane
+
+                const tempUrl = URL.createObjectURL(item.file);
+                tempVideo.src = tempUrl;
+
+                const onLoadedMetadata = () => {
+                    item.duration = tempVideo.duration;
+                    renderFileList();
+                    cleanup();
+                    resolve(true);
+                };
+
+                const onError = () => {
+                    console.warn(`Nie można załadować metadanych dla pliku: ${item.file.name}.`);
+                    item.duration = 0; 
+                    cleanup();
+                    resolve(false);
+                };
+
+                const cleanup = () => {
+                    tempVideo.removeEventListener('loadedmetadata', onLoadedMetadata);
+                    tempVideo.removeEventListener('error', onError);
+                    tempVideo.remove();
+                    URL.revokeObjectURL(tempUrl);
+                };
+
+                tempVideo.addEventListener('loadedmetadata', onLoadedMetadata);
+                tempVideo.addEventListener('error', onError);
+                tempVideo.load();
+            });
+        }
+
+
+        function loadFirstFramePreview() {
+            const item = filePlaylist[currentFileIndex];
+            
+            // 1. Wyczyść i ukryj, jeśli jest to klip STOP, Missing, lub brak pliku
+            if (!item || item.isStopClip || item.isMissingFile) {
+                firstFramePreview.src = '';
+                firstFrameWrapper.style.opacity = '0';
+                firstFrameWrapper.style.pointerEvents = 'none';
+                
+                // ZWOLNIENIE ZASOBÓW POPRZEDNIEGO PODGLĄDU
+                if (tempFirstFrameUrl) {
+                    URL.revokeObjectURL(tempFirstFrameUrl);
+                    tempFirstFrameUrl = null;
+                }
+                return;
+            }
+            
+            // ZAWSZE ZWALNIAMY POPRZEDNI TYMCZASOWY URL, ponieważ będziemy tworzyć nowy
+            // lub używać URL głównego wideo, które ma inny cykl życia.
+            if (tempFirstFrameUrl) {
+                 URL.revokeObjectURL(tempFirstFrameUrl);
+                 tempFirstFrameUrl = null;
+            }
+            
+            let previewUrl;
+            
+            // Jeśli ZAZNACZONY klip jest tym AKTYWNIE ZAŁADOWANYM w głównym playerze, użyj jego URL (item.url)
+            if (currentFileIndex === loadedFileIndex && item.url) {
+                previewUrl = item.url;
+            } else {
+                // Jeśli nie jest załadowany, utwórz nowy TYMCZASOWY URL
+                previewUrl = URL.createObjectURL(item.file);
+                tempFirstFrameUrl = previewUrl; // Zapamiętaj, by móc go zwolnić przy następnej zmianie/wyjściu
+            }
+            
+            // 3. Ustaw źródło, załaduj i ustaw czas
+            firstFramePreview.src = previewUrl;
+            firstFrameWrapper.style.opacity = '0';
+            
+            // 4. Upewniamy się, że nie mamy wiszących listenerów z poprzednich ładowań
+            firstFramePreview.removeEventListener('loadedmetadata', firstFramePreview.handleLoadedMetadata);
+            firstFramePreview.removeEventListener('error', firstFramePreview.handleError);
+
+            const handleLoadedMetadata = () => {
+                firstFramePreview.currentTime = 0;
+                firstFramePreview.pause();
+                
+                // Pokaż podgląd
+                firstFrameWrapper.style.opacity = '1';
+                firstFrameWrapper.style.pointerEvents = 'auto';
+                
+                firstFramePreview.removeEventListener('loadedmetadata', handleLoadedMetadata);
+                firstFramePreview.removeEventListener('error', handleError);
+            };
+
+            const handleError = () => {
+                console.error("Błąd ładowania podglądu klatki.");
+                firstFramePreview.src = '';
+                firstFrameWrapper.style.opacity = '0';
+                firstFrameWrapper.style.pointerEvents = 'none';
+                
+                // ZWOLNIENIE URL TYLKO JEŚLI JEST TO TYMCZASOWY URL
+                if (previewUrl === tempFirstFrameUrl) {
+                    URL.revokeObjectURL(tempFirstFrameUrl);
+                    tempFirstFrameUrl = null;
+                }
+                
+                firstFramePreview.removeEventListener('loadedmetadata', handleLoadedMetadata);
+                firstFramePreview.removeEventListener('error', handleError);
+            };
+            
+            // Przypisanie referencji, by można było je usunąć w kolejnym wywołaniu
+            firstFramePreview.handleLoadedMetadata = handleLoadedMetadata;
+            firstFramePreview.handleError = handleError;
+
+            firstFramePreview.addEventListener('loadedmetadata', handleLoadedMetadata);
+            firstFramePreview.addEventListener('error', handleError);
+            
+            firstFramePreview.load(); 
+        }
+
+        function tryToPlay() {
+            // Jasność docelowa to wartość z kontrolki, a nie aktualna
+            const targetBrightness = parseFloat(brightnessNumber.value); 
+            const targetVolume = parseFloat(volumeNumber.value);
+            
+            // Jeśli nie trwa fade, od razu ustawiamy pełną jasność docelową
+            if (!isFading) { 
+                updateBrightness(targetBrightness);
+                updateVolume(targetVolume);
+            }
+            
+            video.loop = loopCheckbox.checked;
+            mainPreview.loop = loopCheckbox.checked;
+            
+            video.play().catch(e => {
+                 console.warn("Błąd autoodtwarzania wideo. Upewnij się, że okno wyjściowe jest otwarte lub naciśnij play.", e);
+            });
+            mainPreview.play().catch(e => {
+                 console.warn("Błąd autoodtwarzania podglądu. Wymagany gest użytkownika.", e);
+            });
+            
+            isFadingOutBeforeEnd = false;
+        }
+
+        function updateVolume(value, fromFade = false) {
+            value = parseFloat(value);
+            if (!fromFade) {
+                currentVolumeValue = value;
+            }
+            
+            const volume = Math.max(0, Math.min(100, value)) / 100;
+            
+            video.volume = volume;
+            mainPreview.volume = volume;
+
+            video.muted = (volume === 0);
+            mainPreview.muted = (volume === 0);
+            
+            saveControlState(); 
+        }
+
+        function updatePreviewInfo() {
+            const item = filePlaylist[loadedFileIndex];
+            
+            if (loadedFileIndex === -2 || filePlaylist.length === 0) {
+                clipNameDisplay.textContent = 'Brak pliku';
+                totalDurationDisplay.textContent = '--:--';
+                timeDisplay.innerHTML = '00:00 | 00:00';
+                activeLiElement = null; 
+                return;
+            }
+            
+            if (item.isStopClip) { 
+                clipNameDisplay.textContent = item.file.name;
+                totalDurationDisplay.textContent = 'STOP';
+                timeDisplay.innerHTML = '<span class="counting-up">Wyłączone</span> &nbsp;|&nbsp; <span class="counting-down">Wyłączone</span>';
+                return;
+            }
+            
+            if (item.isMissingFile) { 
+                clipNameDisplay.textContent = item.originalName;
+                totalDurationDisplay.textContent = 'BRAK';
+                timeDisplay.innerHTML = '<span class="counting-up">ZAPISANY</span> &nbsp;|&nbsp; <span class="counting-down">PLACEHOLDER</span>';
+                return;
+            }
+
+            if (mainPreview.readyState >= 1) {
+                const duration = item.duration; // Używamy zapisanej długości
+                
+                if (mainPreview.readyState >= 2 && !isNaN(duration) && isFinite(duration) && duration > 0) {
+                    const currentTime = mainPreview.currentTime;
+                    const remainingTime = duration - currentTime;
+                    clipNameDisplay.textContent = item.file.name;
+                    const formattedDuration = formatTime(duration);
+                    totalDurationDisplay.textContent = formattedDuration;
+                    const formattedCurrentTime = formatTime(currentTime);
+                    const formattedRemainingTime = formatTime(remainingTime);
+                    
+                    timeDisplay.innerHTML = `<span class="counting-up">${formattedCurrentTime}</span> &nbsp;|&nbsp; <span class="counting-down">${formattedRemainingTime}</span>`;
+                    
+                    if (autoNextCheckbox.checked && !isFadingOutBeforeEnd) { 
+                        if (remainingTime <= 0.5 && !video.paused) { 
+                            isFadingOutBeforeEnd = true;
+                            startFadeAnimation(0, PRE_END_FADE_STEPS, handleAutoNextFade, 0); 
+                        }
+                    }
+                } else {
+                    clipNameDisplay.textContent = item.file.name;
+                    totalDurationDisplay.textContent = 'ŁADUJĘ';
+                    timeDisplay.innerHTML = '00:00 | --:--';
+                }
+            } else if (item.file && item.file.name) {
+                 clipNameDisplay.textContent = item.file.name;
+                 totalDurationDisplay.textContent = item.duration !== null ? formatTime(item.duration) : '--:--';
+                 timeDisplay.innerHTML = '00:00 | 00:00';
+            }
+            
+            updateProgressBar();
+        }
+        
+        function updateProgressBar() {
+            const item = filePlaylist[loadedFileIndex];
+            
+            document.querySelectorAll('.progress-bar-background').forEach(pb => {
+                pb.style.width = '0%';
+            });
+
+            if (loadedFileIndex >= 0 && item && !item.isStopClip && !item.isMissingFile && !mainPreview.paused) {
+                const duration = item.duration;
+                const currentTime = mainPreview.currentTime;
+                
+                if (activeLiElement && duration > 0) {
+                    const progress = (currentTime / duration) * 100;
+                    const progressBar = activeLiElement.querySelector('.progress-bar-background');
+                    if (progressBar) {
+                        progressBar.style.width = `${progress}%`;
+                    }
+                }
+            }
+        }
+
+        function playSelectedClip(shouldSelectNextOnStop = true) {
+            const item = filePlaylist[currentFileIndex];
+            if (!item) return;
+
+            const isStopOrMissing = item.isStopClip || item.isMissingFile;
+            
+            if (currentFileIndex !== loadedFileIndex) {
+                 loadVideo(item, !isStopOrMissing, false, (success) => {
+                    if (success && !isStopOrMissing) { 
+                        tryToPlay();
+                    } else if (shouldSelectNextOnStop) {
+                        stopVideoAndSetBrightnessToZero();
+                        updateVolume(0);
+                        selectNextClip();
+                    }
+                 });
+            } else {
+                if (isStopOrMissing) {
+                    stopVideoAndSetBrightnessToZero();
+                    updateVolume(0);
+                    if (shouldSelectNextOnStop) {
+                        selectNextClip();
+                    }
+                } else { 
+                    tryToPlay();
+                }
+            }
+        }
+        
+        function playSelectedClipAndSelectNextWithFade() {
+            const itemToPlayIndex = currentFileIndex;
+            const itemToPlay = filePlaylist[itemToPlayIndex];
+
+            if (!itemToPlay) return;
+
+            const isRendererReady = externalRenderer !== null;
+            // Sprawdzamy czy wideo jest AKTYWNIE odtwarzane (jasność > 0)
+            const isPlaying = !video.paused && currentBrightnessValue > 0; 
+            
+            if (!isRendererReady) {
+                playSelectedClip(false); 
+                selectNextClip();
+                return;
+            }
+
+            const fadeSteps = parseInt(crossFadeDurationInput.value);
+            const targetVolume = parseFloat(volumeNumber.value);
+            
+            const startNewClipTransition = () => {
+                
+                stopVideoAndSetBrightnessToZero(); 
+                updateVolume(0); 
+                
+                const startPlayAndFadeIn = () => {
+                    
+                    updateBrightness(0, true); 
+                    updateVolume(0, true); 
+                    
+                    if (itemToPlay.isStopClip || itemToPlay.isMissingFile) {
+                         selectNextClip();
+                         renderFileList();
+                         loadFirstFramePreview(); 
+                         return;
+                    }
+                    
+                    tryToPlay(); 
+
+                    selectNextClip();
+                    renderFileList();
+                    loadFirstFramePreview(); 
+                    
+                    // Fade In do jasności z kontrolki
+                    startFadeAnimation(parseFloat(brightnessNumber.value), fadeSteps, null, targetVolume);
+                };
+
+                if (itemToPlay.isStopClip || itemToPlay.isMissingFile) {
+                    startPlayAndFadeIn(); 
+                } else if (itemToPlayIndex !== loadedFileIndex) {
+                    loadVideo(itemToPlay, false, true, (success) => {
+                        if (success) {
+                            startPlayAndFadeIn();
+                        } else {
+                            stopVideoAndSetBrightnessToZero();
+                            selectNextClip();
+                            renderFileList();
+                            loadFirstFramePreview(); 
+                        }
+                    });
+                } else {
+                    startPlayAndFadeIn();
+                }
+            };
+            
+            if (isPlaying) { 
+                startFadeAnimation(0, fadeSteps, startNewClipTransition, 0); 
+            } else {
+                stopVideoAndSetBrightnessToZero(); 
+                updateVolume(0); 
+                startNewClipTransition(); 
+            }
+        }
+
+
+        function selectNextClip() {
+            if (filePlaylist.length === 0) {
+                currentFileIndex = -1; 
+                renderFileList();
+                loadFirstFramePreview(); 
+                return;
+            }
+            const startIndex = currentFileIndex === -1 ? 0 : currentFileIndex; 
+            const nextIndex = (startIndex + 1) % filePlaylist.length;
+            currentFileIndex = nextIndex;
+            renderFileList();
+            loadFirstFramePreview(); 
+        }
+        
+        function playNextInSequence() { 
+            if (filePlaylist.length === 0) {
+                alert("Brak wczytanych plików. Upuść wideo w strefie playlisty.");
+                return;
+            }
+
+            stopVideoAndSetBrightnessToZero(); 
+            updateVolume(0); 
+            
+            const itemToPlay = filePlaylist[currentFileIndex];
+            if (itemToPlay) {
+                const isStopOrMissing = itemToPlay.isStopClip || itemToPlay.isMissingFile;
+                const targetBrightness = parseFloat(brightnessNumber.value);
+                const targetVolume = parseFloat(volumeNumber.value);
+
+                if (!isStopOrMissing) {
+                    updateBrightness(targetBrightness); 
+                    updateVolume(targetVolume); 
+                    
+                    if (currentFileIndex !== loadedFileIndex) {
+                        loadVideo(itemToPlay, true, false, (success) => {
+                            selectNextClip();
+                            renderFileList();
+                            updatePreviewInfo(); 
+                            loadFirstFramePreview(); 
+                        });
+                        return;
+                    } else {
+                        tryToPlay();
+                    }
+                }
+            }
+            
+            selectNextClip();
+            renderFileList();
+            updatePreviewInfo(); 
+            loadFirstFramePreview(); 
+        }
+
+
+        function handleAutoNextFade() {
+            if (filePlaylist.length === 0) {
+                // Koniec listy
+                stopVideoAndSetBrightnessToZero();
+                updateVolume(0);
+                return;
+            }
+            
+            selectNextClip();
+            const item = filePlaylist[currentFileIndex];
+            loadFirstFramePreview(); 
+            
+            if (item.isMissingFile) { 
+                stopVideoAndSetBrightnessToZero();
+                updateVolume(0); 
+                handleAutoNextFade(); 
+                return;
+            }
+            
+            const isStop = item.isStopClip;
+
+            if (externalRenderer !== null) { 
+                const fadeSteps = parseInt(crossFadeDurationInput.value);
+                const targetBrightness = parseFloat(brightnessNumber.value);
+                const targetVolume = parseFloat(volumeNumber.value);
+                
+                const startPlayAndFadeIn = () => {
+                    if (isStop) {
+                        stopVideoAndSetBrightnessToZero();
+                        updateVolume(0); 
+                        handleAutoNextFade(); 
+                        return;
+                    }
+                    
+                    updateBrightness(0, true);
+                    updateVolume(0, true);
+                    
+                    tryToPlay();
+
+                    startFadeAnimation(targetBrightness, fadeSteps, null, targetVolume); 
+                };
+
+                if (currentFileIndex !== loadedFileIndex) {
+                    loadVideo(item, false, false, (success) => {
+                        if (success) {
+                            startPlayAndFadeIn();
+                        } else {
+                            stopVideoAndSetBrightnessToZero();
+                            handleAutoNextFade(); 
+                        }
+                    });
+                } else {
+                    startPlayAndFadeIn();
+                }
+            } else { 
+                playSelectedClip(true);
+            }
+        }
+
+        function fadeStop() {
+             if (!externalRenderer) {
+                stopVideoAndSetBrightnessToZero();
+                updateVolume(0);
+                return;
+            }
+            const fadeSteps = parseInt(crossFadeDurationInput.value);
+            startFadeAnimation(0, fadeSteps, stopVideoAndSetBrightnessToZero, 0); 
+        }
+
+        function updateMeshScale() {
+            if (!videoMesh) return;
+            const width = parseFloat(document.getElementById('widthNumber').value) || 1.0;
+            const height = parseFloat(document.getElementById('heightNumber').value) || 1.0;
+            const scale = parseFloat(document.getElementById('scaleNumber').value) || 1.0;
+            videoMesh.scale.set(width * scale, height * scale, 1);
+        }
+
+        function updateMeshRotation() {
+            if (!videoMesh) return;
+            const rotateX = THREE.MathUtils.degToRad(parseFloat(document.getElementById('rotateXNumber').value) || 0);
+            const rotateY = THREE.MathUtils.degToRad(parseFloat(document.getElementById('rotateYNumber').value) || 0);
+            const rotateZ = THREE.MathUtils.degToRad(parseFloat(document.getElementById('rotateZNumber').value) || 0);
+            videoMesh.rotation.set(rotateX, rotateY, rotateZ);
+        }
+
+        function updateMeshPosition() {
+            if (!videoMesh) return;
+            const posX = parseFloat(document.getElementById('posXNumber').value) || 0;
+            const posY = parseFloat(document.getElementById('posYNumber').value) || 0;
+            const posZ = parseFloat(document.getElementById('posZNumber').value) || 0.1;
+            videoMesh.position.set(posX, posY, -posZ);
+        }
+
+        function updateBrightness(value, fromFade = false, initialLoad = false) {
+            value = parseFloat(value);
+            if (!fromFade) { 
+                isFading = false;
+                // Jeśli nie jest to fade, aktualna jasność jest ustawiana na wartość z kontrolki
+                currentBrightnessValue = value; 
+            }
+            const clampedValue = Math.max(0, Math.min(100, currentBrightnessValue)); 
+            currentBrightnessValue = clampedValue; 
+            
+            if (videoMesh && videoMesh.material) {
+                const hexValue = Math.floor(255 * (clampedValue / 100));
+                const hexString = hexValue.toString(16).padStart(2, '0');
+                const colorHex = `#${hexString}${hexString}${hexString}`;
+                videoMesh.material.color.set(colorHex);
+            }
+            
+            if (fadeLevelIndicator && fadeValueDisplay) {
+                const displayValue = Math.round(currentBrightnessValue); 
+                fadeLevelIndicator.value = displayValue;
+                fadeValueDisplay.textContent = `${displayValue}%`;
+                
+                if (displayValue <= 10) {
+                     fadeValueDisplay.style.color = '#e74c3c'; 
+                } else if (displayValue < 50) {
+                     fadeValueDisplay.style.color = '#f1c40f'; 
+                } else {
+                     fadeValueDisplay.style.color = '#1abc9c'; 
+                }
+            }
+            
+            if (!initialLoad) {
+                saveControlState();
+            }
+        }
+
+        function updateLinkedControl(sourceElement) {
+            const targetId = sourceElement.dataset.target;
+            const targetElement = document.getElementById(targetId);
+            const value = sourceElement.value;
+
+            if (!targetElement) return;
+            
+            if (sourceElement.id === 'volumeRange' && value === 0) {
+                updateVolume(0, false);
+            }
+
+            targetElement.value = value;
+
+            if (sourceElement.id.endsWith('Range') || sourceElement.id.endsWith('Number')) {
+                const idPrefix = sourceElement.id.replace(/(Range|Number)$/, '');
+                if (idPrefix.includes('width') || idPrefix.includes('height') || idPrefix.includes('scale')) {
+                    updateMeshScale();
+                } else if (idPrefix.includes('rotate')) {
+                    updateMeshRotation();
+                } else if (idPrefix.includes('pos')) {
+                    updateMeshPosition();
+                } else if (idPrefix.includes('brightness')) {
+                    // Kiedy użytkownik zmienia suwak brightness, ustawiamy aktualną jasność na tę wartość
+                    // tylko jeśli wideo jest odtwarzane (currentBrightnessValue > 0)
+                    if (currentBrightnessValue > 0 || video.paused) { 
+                        updateBrightness(value, false);
+                    }
+                } else if (idPrefix.includes('volume')) {
+                    updateVolume(value, false);
+                }
+            }
+        }
+
+        function resetAllModifiers() {
+            document.querySelectorAll('.reset-button').forEach(button => {
+                button.click(); 
+            });
+            
+            fadeDurationInput.value = FADE_DURATION_DEFAULT_VALUE;
+            fadeTimeLabel.textContent = `(${fadeDurationInput.value / 10} s)`;
+            
+            const crossFadeDefault = document.getElementById('crossFadeDuration').getAttribute('value');
+            crossFadeDurationInput.value = crossFadeDefault; 
+            crossFadeTimeLabel.textContent = `(${crossFadeDefault / 10} s)`;
+            
+            updateMeshScale();
+            updateMeshRotation();
+            updateMeshPosition();
+            // Resetowanie Jasności do 100%, ale fizycznie ustawiamy 0 na wyjściu, jeśli nie gramy
+            if (!video.paused && loadedFileIndex >= 0) {
+                 updateBrightness(parseFloat(brightnessNumber.value), false); 
+            } else {
+                 updateBrightness(0, false); 
+            }
+            updateVolume(parseFloat(volumeNumber.value)); 
+            
+            saveControlState();
+            alert("Wszystkie modyfikatory zostały zresetowane do wartości neutralnych.");
+        }
+
+
+        function renderFileList() {
+            fileListElement.innerHTML = '';
+            if (filePlaylist.length === 0) {
+                fileListElement.innerHTML = '<li style="color: #555; background: #222; cursor: default;">Brak wczytanych plików.</li>';
+                activeLiElement = null; 
+                return;
+            }
+            
+            filePlaylist.forEach((item, index) => {
+                const li = document.createElement('li'); 
+                
+                const progressBar = document.createElement('div');
+                progressBar.classList.add('progress-bar-background');
+                li.appendChild(progressBar); 
+                
+                let durationText = '---';
+                if (item.isStopClip) {
+                    durationText = formatTime(0); 
+                } else if (item.duration !== null) {
+                    durationText = formatTime(item.duration);
+                } else if (item.isMissingFile) {
+                    durationText = 'BRAK';
+                }
+                const durationSpan = document.createElement('span');
+                durationSpan.classList.add('clip-duration');
+                durationSpan.textContent = durationText;
+                li.appendChild(durationSpan); 
+                
+                const clipNameText = item.isMissingFile ? `${index + 1}. [BRAK PLIKU]: ${item.originalName}` : `${index + 1}. ${item.file.name}`;
+                const nameSpan = document.createElement('span');
+                nameSpan.classList.add('clip-name-text');
+                nameSpan.textContent = clipNameText;
+                li.appendChild(nameSpan);
+
+                if (item.isStopClip) {
+                    li.classList.add('stop-clip');
+                } else if (item.isMissingFile) {
+                    li.classList.add('missing-file');
+                }
+
+                if (index === currentFileIndex) {
+                    li.classList.add('active');
+                    activeLiElement = li; 
+                }
+
+                if (!item.isMissingFile) {
+                    li.draggable = true;
+                    li.addEventListener('dragstart', (e) => {
+                        draggedItem = li;
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', index); 
+                        setTimeout(() => li.style.opacity = '0.5', 0); 
+                    });
+
+                    li.addEventListener('dragover', (e) => {
+                        e.preventDefault(); 
+                        if (!draggedItem || draggedItem === li) return;
+                        
+                        const rect = li.getBoundingClientRect();
+                        const isBefore = e.clientY < rect.top + rect.height / 2;
+                        
+                        document.querySelectorAll('#fileList li.drag-before, #fileList li.drag-after').forEach(el => {
+                            el.classList.remove('drag-before', 'drag-after');
+                        });
+
+                        li.classList.add(isBefore ? 'drag-before' : 'drag-after');
+                        e.dataTransfer.dropEffect = 'move';
+                    });
+                    
+                    li.addEventListener('dragleave', () => {
+                        li.classList.remove('drag-before', 'drag-after');
+                    });
+                    
+                    li.addEventListener('drop', (e) => {
+                        e.stopPropagation();
+                        li.classList.remove('drag-before', 'drag-after');
+                        e.preventDefault();
+                        
+                        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                        const toIndex = index;
+                        
+                        if (fromIndex !== toIndex) {
+                            const item = filePlaylist.splice(fromIndex, 1)[0];
+                            const dropIndex = li.classList.contains('drag-before') ? toIndex : toIndex + 1;
+                            filePlaylist.splice(dropIndex > fromIndex ? dropIndex - 1 : dropIndex, 0, item);
+
+                            if (currentFileIndex === fromIndex) {
+                                currentFileIndex = dropIndex > fromIndex ? dropIndex - 1 : dropIndex;
+                            } else if (currentFileIndex === toIndex) {
+                                currentFileIndex = fromIndex; 
+                            } else if (currentFileIndex > fromIndex && currentFileIndex <= dropIndex) {
+                                currentFileIndex--;
+                            } else if (currentFileIndex < fromIndex && currentFileIndex >= dropIndex) {
+                                currentFileIndex++;
+                            }
+                            if (loadedFileIndex === fromIndex) {
+                                loadedFileIndex = dropIndex > fromIndex ? dropIndex - 1 : dropIndex;
+                            } else if (loadedFileIndex === toIndex) {
+                                loadedFileIndex = fromIndex;
+                            } else if (loadedFileIndex > fromIndex && loadedFileIndex <= dropIndex) {
+                                loadedFileIndex--;
+                            } else if (loadedFileIndex < fromIndex && loadedFileIndex >= dropIndex) {
+                                loadedFileIndex++;
+                            }
+
+                            renderFileList();
+                            saveControlState();
+                            loadFirstFramePreview(); 
+                        }
+                    });
+
+                    li.addEventListener('dragend', () => {
+                        draggedItem.style.opacity = '1'; 
+                        draggedItem = null;
+                        document.querySelectorAll('#fileList li').forEach(el => {
+                            el.classList.remove('drag-before', 'drag-after');
+                        });
+                    });
+                }
+                
+                // LOGIKA: KLIKNIĘCIE TYLKO ZAZNACZA I AKTUALIZUJE PODGLĄD
+                li.addEventListener('click', () => {
+                    if (item.isMissingFile) {
+                        alert(`Błąd: Plik wideo "${item.originalName}" nie został odnaleziony. Upuść go w strefie Drag & Drop, aby go wczytać.`);
+                        return;
+                    }
+                    
+                    currentFileIndex = index;
+                    renderFileList();
+                    
+                    loadFirstFramePreview(); 
+                    
+                    if (index === loadedFileIndex) {
+                        updatePreviewInfo();
+                    } 
+                });
+
+
+                fileListElement.appendChild(li);
+            });
+        }
+
+        function addStopClip() {
+            const stopClip = {
+                file: { name: 'STOP', size: 0, type: 'virtual/stop' },
+                url: null,
+                isStopClip: true,
+                isMissingFile: false,
+                originalName: 'STOP',
+                duration: 0
+            };
+            filePlaylist.push(stopClip);
+            currentFileIndex = filePlaylist.length - 1; 
+            if (loadedFileIndex !== -2) {
+                loadedFileIndex++; 
+            }
+            renderFileList();
+            stopVideoAndSetBrightnessToZero();
+            updateVolume(0); 
+            updatePreviewInfo();
+            loadFirstFramePreview(); 
+            saveControlState();
+        }
+
+        function removeSelectedClip() {
+            if (currentFileIndex === -1 || filePlaylist.length === 0) {
+                alert("Brak zaznaczonego elementu do usunięcia.");
+                return;
+            }
+            if (!confirm(`Czy na pewno usunąć element: "${filePlaylist[currentFileIndex].file.name}"?`)) {
+                return;
+            }
+
+            const removedItem = filePlaylist.splice(currentFileIndex, 1)[0]; 
+
+            if (currentFileIndex === loadedFileIndex) {
+                stopVideoAndSetBrightnessToZero();
+                updateVolume(0);
+                loadedFileIndex = -2; 
+            } else if (loadedFileIndex > currentFileIndex) { 
+                loadedFileIndex--;
+            }
+
+            if (currentFileIndex >= filePlaylist.length) { 
+                currentFileIndex = filePlaylist.length - 1;
+            }
+
+            if (removedItem.url) {
+                URL.revokeObjectURL(removedItem.url);
+            }
+            
+            // ZWOLNIENIE TYMCZASOWEGO URL PODGLĄDU
+            if (tempFirstFrameUrl) {
+                URL.revokeObjectURL(tempFirstFrameUrl);
+                tempFirstFrameUrl = null;
+            }
+
+
+            if (filePlaylist.length === 0) {
+                loadedSettingsInfo.textContent = '';
+            }
+            
+            renderFileList();
+            updatePreviewInfo(); 
+            updateProgressBar(); 
+            loadFirstFramePreview(); 
+            saveControlState();
+        }
+
+        function clearPlaylist(askForConfirmation = true) {
+            if (askForConfirmation && filePlaylist.length > 0 && !confirm("Czy na pewno chcesz wyczyścić całą playlistę?")) {
+                return;
+            }
+            
+            filePlaylist.forEach(item => {
+                if (item.url) {
+                    URL.revokeObjectURL(item.url);
+                }
+            });
+            filePlaylist = [];
+            currentFileIndex = -1;
+            loadedFileIndex = -2;
+            
+            stopVideoAndSetBrightnessToZero();
+            updateVolume(0);
+            
+            // ZWOLNIENIE TYMCZASOWEGO URL PODGLĄDU
+            if (tempFirstFrameUrl) {
+                URL.revokeObjectURL(tempFirstFrameUrl);
+                tempFirstFrameUrl = null;
+            }
+            
+            renderFileList();
+            updatePreviewInfo();
+            loadFirstFramePreview(); 
+            
+            loadedSettingsInfo.textContent = ''; 
+            saveControlState();
+        }
+
+        function saveSettings() {
+            if (filePlaylist.length === 0) {
+                alert("Brak klipów na liście do zapisania ustawień.");
+                return;
+            }
+            const settingsName = prompt("Podaj nazwę pliku z ustawieniami (bez rozszerzenia .HVJM):", "my-vj-settings");
+            if (!settingsName) return;
+
+            const controlsToSave = [
+                'crossFadeDuration', 'fadeDuration', 'brightnessNumber', 'volumeNumber',
+                'widthNumber', 'heightNumber', 'scaleNumber', 
+                'rotateXNumber', 'rotateYNumber', 'rotateZNumber', 
+                'posXNumber', 'posYNumber', 'posZNumber'
+            ];
+            const controlsState = {};
+            controlsToSave.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    controlsState[id] = element.value;
+                }
+            });
+            controlsState['loopCheckbox'] = loopCheckbox.checked;
+            controlsState['autoNextCheckbox'] = autoNextCheckbox.checked;
+
+            const playlistStructure = filePlaylist.map((item, index) => ({
+                index: index,
+                name: item.originalName, 
+                isStopClip: item.isStopClip,
+                requiresFile: !item.isStopClip,
+                duration: item.duration // Zapisujemy już załadowaną długość
+            }));
+
+            const currentState = {
+                currentFileIndex: currentFileIndex,
+                loadedFileIndex: loadedFileIndex,
+                currentBrightness: currentBrightnessValue,
+                currentVolume: currentVolumeValue
+            };
+
+            const appState = {
+                version: 'HVJM_V1.0', 
+                controls: controlsState,
+                playlist: playlistStructure,
+                state: currentState
+            };
+
+            const jsonString = JSON.stringify(appState, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = settingsName + '.hvjm';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadSettings(file) {
+            clearPlaylist(false); 
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.version !== 'HVJM_V1.0') {
+                        alert("Nieprawidłowy format pliku ustawień HVJM.");
+                        return;
+                    }
+
+                    loadedSettingsInfo.textContent = `Wczytano: ${file.name}`;
+
+                    for (const id in data.controls) {
+                        const element = document.getElementById(id);
+                        if (!element) continue;
+
+                        if (element.type === 'checkbox') {
+                            element.checked = data.controls[id];
+                        } else {
+                            element.value = data.controls[id];
+                        }
+                        
+                        element.dispatchEvent(new Event('input', { bubbles: true }));
+                        element.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        // Nie aktualizujemy jasności ani głośności z pliku kontrolek, tylko ich docelowe wartości
+                    }
+                    
+                    // Ustawienie głośności
+                    updateVolume(parseFloat(document.getElementById('volumeNumber').value));
+
+
+                    data.playlist.forEach(item => {
+                        let fileItem;
+                        if (item.isStopClip) {
+                            fileItem = {
+                                file: { name: 'STOP', size: 0, type: 'virtual/stop' },
+                                url: null,
+                                isStopClip: true,
+                                isMissingFile: false,
+                                originalName: item.name,
+                                duration: 0
+                            };
+                        } else {
+                            // Utworzenie obiektu 'missing'
+                            fileItem = {
+                                file: { name: `[BRAK PLIKU]: ${item.name}`, size: 0, type: 'virtual/missing' },
+                                url: null,
+                                isStopClip: false,
+                                isMissingFile: true,
+                                originalName: item.name,
+                                duration: item.duration || null 
+                            };
+                        }
+                        filePlaylist.push(fileItem);
+                    });
+
+                    currentFileIndex = data.state.currentFileIndex;
+                    loadedFileIndex = -2; // Wczytany plik musi zostać ponownie załadowany
+                    
+                    // Ustawienie stanu jasności z pliku zapisu (0% oznacza stop)
+                    currentBrightnessValue = data.state.currentBrightness; 
+                    
+                    renderFileList();
+                    
+                    // Po wczytaniu z HVJM, wyjście modyfikowane będzie czarne, dopóki użytkownik go nie otworzy.
+                    // Jasność na wyjściu zostanie ustawiona w setupThreeJS.
+                    
+                    if (currentFileIndex >= 0) {
+                        const item = filePlaylist[currentFileIndex];
+                        if (!item.isStopClip && !item.isMissingFile) {
+                            // Wymuszenie załadowania, jeśli chcemy mieć podgląd info
+                            loadVideo(item, false, true, updatePreviewInfo);
+                        }
+                    } else {
+                        updatePreviewInfo();
+                    }
+                    
+                    loadFirstFramePreview(); 
+
+                } catch (error) {
+                    console.error("Błąd parsowania pliku HVJM:", error);
+                    alert("Błąd: Nie można wczytać pliku ustawień. Upewnij się, że jest to poprawny plik .HVJM.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function readDirectoryEntry(entry, filesArray) {
+            return new Promise(resolve => {
+                const reader = entry.createReader();
+                const readEntries = () => {
+                    reader.readEntries(async (entries) => {
+                        if (!entries.length) {
+                            resolve();
+                            return;
+                        }
+                        const entryPromises = [];
+                        for (const subEntry of entries) {
+                            if (subEntry.isDirectory) {
+                                entryPromises.push(readDirectoryEntry(subEntry, filesArray));
+                            } else if (subEntry.isFile) {
+                                entryPromises.push(new Promise(fileResolve => {
+                                    subEntry.file(file => {
+                                        filesArray.push(file);
+                                        fileResolve();
+                                    });
+                                }));
+                            }
+                        }
+                        await Promise.all(entryPromises); 
+                        readEntries();
+                    }, (error) => {
+                        console.error("Error reading directory entries:", error);
+                        resolve();
+                    });
+                };
+                readEntries();
+            });
+        }
+
+        let loadedSettingsFile = null;
+        let allVideoFiles = [];
+
+        function processFile(file) {
+            if (file.name.startsWith('.') || file.name === 'Thumbs.db') return;
+
+            if (file.name.toLowerCase().endsWith('.hvjm')) {
+                loadedSettingsFile = file;
+            } else if (file.type.startsWith('video/')) {
+                allVideoFiles.push(file);
+            }
+        }
+
+        async function handleNewFiles(items) {
+            let filesToProcess = [];
+
+            if (items instanceof FileList) {
+                filesToProcess = Array.from(items);
+            } else if (items instanceof DataTransferItemList) {
+                const entryPromises = [];
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) {
+                        if (entry.isDirectory) {
+                            entryPromises.push(readDirectoryEntry(entry, filesToProcess));
+                        } else if (entry.isFile) {
+                            entryPromises.push(new Promise(fileResolve => {
+                                entry.file(file => {
+                                    filesToProcess.push(file);
+                                    fileResolve();
+                                });
+                            }));
+                        }
+                    }
+                }
+                await Promise.all(entryPromises);
+            }
+
+            loadedSettingsFile = null;
+            allVideoFiles = [];
+
+            filesToProcess.forEach(processFile);
+
+            let settingsLoaded = false;
+            
+            if (loadedSettingsFile) {
+                loadSettings(loadedSettingsFile);
+                settingsLoaded = true;
+            }
+            
+            const fileMap = new Map();
+            allVideoFiles.forEach(file => {
+                fileMap.set(file.name, file);
+            });
+            
+            // 1. Dopasowanie plików do brakujących w playliście
+            filePlaylist.forEach(item => {
+                if (item.isMissingFile) {
+                    const foundFile = fileMap.get(item.originalName);
+                    if (foundFile) {
+                        item.file = foundFile;
+                        item.isMissingFile = false;
+                        item.url = null; 
+                        item.duration = null; // Wymuszenie ponownego sprawdzenia długości
+                        fileMap.delete(item.originalName); 
+                    } else {
+                        item.url = null; 
+                    }
+                } else if (!item.isStopClip) {
+                    // Usuwamy znalezione pliki, które już są w playliście (np. z katalogu)
+                    fileMap.delete(item.file.name);
+                }
+            });
+
+            // 2. Dodanie nowych plików do playisty
+            fileMap.forEach(file => {
+                const newFileItem = {
+                    file: file,
+                    url: null,
+                    isStopClip: false,
+                    isMissingFile: false,
+                    originalName: file.name,
+                    duration: null 
+                };
+                filePlaylist.push(newFileItem);
+            });
+            
+            // 3. Sprawdzenie długości wszystkich nowych lub odnalezionych plików
+            const itemsToUpdate = filePlaylist.filter(item => 
+                !item.isStopClip && !item.isMissingFile && item.duration === null
+            );
+            
+            if (itemsToUpdate.length > 0) {
+                console.log(`Pobieranie metadanych dla ${itemsToUpdate.length} plików...`);
+                const durationPromises = itemsToUpdate.map(updateFileDuration);
+                await Promise.all(durationPromises); // Czekamy na załadowanie wszystkich długości
+            }
+            
+            if (filePlaylist.length > 0) {
+                if (currentFileIndex === -1 || settingsLoaded) {
+                    currentFileIndex = 0;
+                }
+
+                renderFileList();
+
+                if (loadedFileIndex >= 0 && filePlaylist[loadedFileIndex] && !filePlaylist[loadedFileIndex].isStopClip && !filePlaylist[loadedFileIndex].isMissingFile) {
+                    loadVideo(filePlaylist[loadedFileIndex], false, true, updatePreviewInfo);
+                } else if (currentFileIndex !== -1 && filePlaylist[currentFileIndex] && !filePlaylist[currentFileIndex].isStopClip && !filePlaylist[currentFileIndex].isMissingFile) {
+                    loadVideo(filePlaylist[currentFileIndex], false, true, updatePreviewInfo);
+                } else {
+                    updatePreviewInfo();
+                }
+                
+                loadFirstFramePreview(); 
+            }
+        }
+
+
+        function setupControls() {
+            // Wczytanie stanu kontrolek, ale BEZ ustawiania jasności na wyjściu
+            loadControlState();
+            
+            fadeDurationInput.value = fadeDurationInput.value || FADE_DURATION_DEFAULT_VALUE;
+            
+            fadeTimeLabel.textContent = `(${fadeDurationInput.value / 10} s)`;
+            crossFadeTimeLabel.textContent = `(${crossFadeDurationInput.value / 10} s)`;
+            
+            fileInput.addEventListener('change', (e) => {
+                handleNewFiles(e.target.files);
+            });
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault(); 
+                dropZone.classList.add('drag-over');
+                e.dataTransfer.dropEffect = 'copy'; 
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault(); 
+                dropZone.classList.remove('drag-over');
+                handleNewFiles(e.dataTransfer.items || e.dataTransfer.files);
+            });
+            
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            document.getElementById('playButton').addEventListener('click', () => {
+                playSelectedClip(false); 
+            });
+
+            document.getElementById('pauseButton').addEventListener('click', () => {
+                video.pause();
+                mainPreview.pause();
+            });
+            
+            hardStopButton.addEventListener('click', () => {
+                stopVideoAndSetBrightnessToZero();
+                updateVolume(0); 
+                updatePreviewInfo();
+                
+                // ZWOLNIENIE TYMCZASOWEGO URL PODGLĄDU
+                if (tempFirstFrameUrl) {
+                    URL.revokeObjectURL(tempFirstFrameUrl);
+                    tempFirstFrameUrl = null;
+                }
+                loadFirstFramePreview(); 
+            });
+
+            setTimeButton.addEventListener('click', () => {
+                if (mainPreview.readyState >= 1) {
+                    mainPreview.currentTime = 10;
+                    updatePreviewInfo();
+                }
+            });
+
+            loopCheckbox.addEventListener('change', () => {
+                video.loop = loopCheckbox.checked;
+                mainPreview.loop = loopCheckbox.checked;
+            });
+            
+            video.addEventListener('playing', () => { 
+                // Kiedy wideo fizycznie zaczyna grać, upewniamy się, że jasność jest > 0
+                // Ale nie resetujemy jasności, jeśli trwa fade
+                if (currentBrightnessValue === 0) {
+                    // Wymuszenie jasności docelowej
+                    updateBrightness(parseFloat(brightnessNumber.value)); 
+                }
+            });
+
+            nextClipPlayButton.addEventListener('click', playNextInSequence); 
+            crossFadePlayButton.addEventListener('click', playSelectedClipAndSelectNextWithFade);
+            fadeStopButton.addEventListener('click', fadeStop);
+            
+            resetAllModifiersButton.addEventListener('click', resetAllModifiers);
+
+
+            mainPreview.addEventListener('timeupdate', () => {
+                updatePreviewInfo(); 
+            });
+
+            mainPreview.addEventListener('ended', () => {
+                if (!loopCheckbox.checked && autoNextCheckbox.checked) {
+                    if (!isFadingOutBeforeEnd) {
+                        handleAutoNextFade(); 
+                    }
+                } else if (!loopCheckbox.checked && !autoNextCheckbox.checked) {
+                    stopVideoAndSetBrightnessToZero();
+                    updateVolume(0);
+                    updatePreviewInfo();
+                    loadFirstFramePreview(); 
+                }
+            });
+
+            document.querySelectorAll('.reset-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const rangeId = e.target.dataset.range;
+                    const numberId = e.target.dataset.number;
+                    const defaultValue = e.target.dataset.default;
+                    const isBrightness = e.target.dataset.isBrightness === 'true';
+
+                    if (rangeId) document.getElementById(rangeId).value = defaultValue;
+                    if (numberId) document.getElementById(numberId).value = defaultValue;
+
+                    if (isBrightness) {
+                         // Resetuje do 100 na kontrolce, ale nie wpływa na stan "stop"
+                        updateBrightness(currentBrightnessValue, false, true); 
+                    } else if (rangeId) {
+                        document.getElementById(rangeId).dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+            });
+
+            document.querySelectorAll('input[type="range"], input[type="number"]').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    updateLinkedControl(e.target);
+                    saveControlState();
+                });
+
+                if (input.type === 'number') {
+                    input.addEventListener('change', (e) => {
+                        updateLinkedControl(e.target);
+                        saveControlState();
+                    });
+                }
+            });
+
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', saveControlState);
+            });
+
+            addStopClipButton.addEventListener('click', addStopClip);
+            removeSelectedClipButton.addEventListener('click', removeSelectedClip);
+            clearPlaylistButton.addEventListener('click', clearPlaylist);
+            saveSettingsButton.addEventListener('click', saveSettings);
+
+            document.getElementById('fadeOutButton').addEventListener('click', () => {
+                if (externalRenderer) {
+                    startFadeAnimation(0, null, null, 0);
+                }
+            });
+            document.getElementById('fadeInButton').addEventListener('click', () => {
+                if (externalRenderer) {
+                    startFadeAnimation(parseFloat(brightnessNumber.value), null, null, parseFloat(volumeNumber.value));
+                }
+            });
+            
+            fadeDurationInput.addEventListener('input', () => {
+                fadeTimeLabel.textContent = `(${fadeDurationInput.value / 10} s)`;
+            });
+            crossFadeDurationInput.addEventListener('input', () => {
+                crossFadeTimeLabel.textContent = `(${crossFadeDurationInput.value / 10} s)`;
+            });
+
+            document.getElementById('openOutputButton').addEventListener('click', () => {
+                if (!outputWindow || outputWindow.closed) {
+                    outputWindow = window.open('', 'VJMapperOutput', 'width=1280,height=720');
+                    if (outputWindow) {
+                        outputWindow.document.title = 'VJ Mapper Output';
+                        setupThreeJS();
+                        
+                        // Ustawienie jasności na wyjściu modyfikowanym na wartość z pamięci (zwykle 0)
+                        updateBrightness(currentBrightnessValue, false, true);
+
+                        outputWindow.onbeforeunload = () => {
+                            if (externalRenderer) {
+                                externalRenderer.dispose(); 
+                                externalRenderer = null; 
+                                scene = null;
+                                camera = null;
+                                videoTexture = null;
+                                videoMesh = null;
+                            }
+
+                            if (domUpdateInterval) {
+                                clearInterval(domUpdateInterval);
+                                domUpdateInterval = null;
+                            }
+                            outputWindow = null;
+                            // Resetujemy, aby na nowo otwartym oknie była jasność 0
+                            currentBrightnessValue = 0; 
+                            saveControlState(); 
+                        };
+
+                        window.addEventListener('beforeunload', () => {
+                            if (outputWindow && !outputWindow.closed) {
+                                outputWindow.close();
+                            }
+                        });
+                    } else {
+                        alert("Blokowanie wyskakujących okien (pop-up blocker) uniemożliwiło otwarcie okna wyjściowego. Proszę je wyłączyć.");
+                    }
+                }
+            });
+            
+            // Upewnienie się, że aktualna jasność jest 0% na starcie
+            currentBrightnessValue = 0; 
+            updateBrightness(currentBrightnessValue, false, true); 
+
+            renderFileList();
+            setInitialLayout();
+            updatePreviewInfo(); 
+            loadFirstFramePreview(); 
+        }
+
+        document.addEventListener('DOMContentLoaded', setupControls);
+
+    </script>
+</body>
+</html>
