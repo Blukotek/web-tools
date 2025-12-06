@@ -29,7 +29,6 @@
 
         h1 { text-align: center; margin-bottom: 5px; }
         
-        /* Styl dla napisu z atrybucją */
         .attribution {
             text-align: center;
             font-size: 0.85em;
@@ -81,7 +80,6 @@
             min-width: 250px;
         }
 
-        /* Pole Drag & Drop */
         .drop-zone {
             border: 2px dashed var(--border-color);
             border-radius: 6px;
@@ -122,6 +120,13 @@
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
             outline: none;
         }
+
+        /* Stylizacja dla pól numerycznych, aby zawsze pokazywały strzałki (Spin Edit) */
+        /* Usunęliśmy kod, który je ukrywał. Teraz przeglądarka wyświetli je domyślnie. */
+        input[type="number"] {
+             padding-right: 0; /* Zmniejszamy padding, żeby strzałki się ładnie mieściły */
+        }
+
 
         button {
             background-color: var(--accent-color);
@@ -193,18 +198,14 @@
             gap: 8px;
         }
         .input-group input, .input-group select {
-            padding: 8px;
+            padding: 8px 4px; /* Mniejszy padding boczny dla inputów */
             font-size: 13px;
             text-align: center;
         }
-        .input-group input.channel-input { flex: 0 0 60px; }
+        .input-group input.channel-input { flex: 0 0 65px; }
         .input-group select.command-select { flex: 2; }
         .input-group input.param-input { flex: 1; }
         
-        input[type="number"] { -moz-appearance: textfield; }
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
         tr.active-in { background-color: #e3f2fd; transition: background-color 0.2s; }
         
         .learn-toggle {
@@ -266,7 +267,7 @@
                     Tryb Programowania
                 </label>
                 <p style="font-size: 0.85em; color: #666; margin-top: 5px;">
-                    **Zaznaczone:** Dodaje nowe komunikaty, wszystkie komunikaty przepuszczane (domyślnie 1:1).
+                    Letni fioletowy kolor oznacza aktywny tryb programowania (dodawanie/usuwanie).
                 </p>
             </div>
             
@@ -279,7 +280,7 @@
 
     <div class="mapping-container">
         <h2>Mapa Komunikatów</h2>
-        <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">**Tryb Programowania** pozwala na dodawanie (poprzez granie) i usuwanie mapowań. **Tryb Pracy** blokuje komunikaty spoza listy, działając jako ścisły filtr.</p>
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">Pola numeryczne można zmieniać za pomocą strzałek lub kółka myszy (po najechaniu).</p>
         <table id="mapping-table">
             <thead>
                 <tr>
@@ -300,7 +301,7 @@
 
 <script>
     // =================================================================
-    // WERSJA PARAMETRYCZNA (Kanał/Komenda/Numer) z Trybem Nauki i Programowania
+    // MIDI Remapper - Wersja Finalna (SpinEdit + Scroll)
     // =================================================================
 
     // --- Zmienne globalne ---
@@ -310,7 +311,7 @@
     let mappings = {}; 
     let learningKey = null; 
     let programmingMode = true; 
-    let sessionFileName = 'Bez nazwy sesji'; // Nowa zmienna do śledzenia nazwy sesji
+    let sessionFileName = 'Bez nazwy sesji'; 
 
     // Elementy DOM
     const statusMsg = document.getElementById('status-message');
@@ -322,7 +323,7 @@
     const loadFileInput = document.getElementById('load-file-input');
     const clearBtn = document.getElementById('clear-btn');
     const programmingModeToggle = document.getElementById('programming-mode-toggle');
-    const dropZone = document.getElementById('drop-zone'); // Nowy element
+    const dropZone = document.getElementById('drop-zone');
 
     // Definicje komend MIDI
     const MIDI_COMMANDS = {
@@ -340,7 +341,41 @@
         return `${note}${octave} (${noteNumber})`;
     }
 
-    // --- Funkcje Parsowania i Tworzenia Komunikatów MIDI (bez zmian) ---
+    // --- Funkcje Pomocnicze ---
+    
+    // NOWA FUNKCJA: Dodaje obsługę scrolla myszy do pola numerycznego
+    function addScrollSupport(inputElement) {
+        inputElement.addEventListener('wheel', function(e) {
+            if (this.disabled || this.readOnly) return;
+            e.preventDefault(); // Zapobiegaj przewijaniu strony
+
+            // Pobierz obecne wartości i limity
+            let val = parseInt(this.value) || 0;
+            const min = parseInt(this.min) || 0;
+            const max = parseInt(this.max) || 127;
+            const step = parseInt(this.step) || 1;
+
+            // Określ kierunek (deltaY < 0 to scroll w górę -> zwiększ)
+            if (e.deltaY < 0) {
+                val += step;
+            } else {
+                val -= step;
+            }
+
+            // Zastosuj limity
+            val = Math.max(min, Math.min(max, val));
+
+            // Aktualizuj wartość tylko jeśli się zmieniła
+            if (parseInt(this.value) !== val) {
+                this.value = val;
+                // Ważne: Wywołaj zdarzenie 'change', aby zaktualizować logikę mapowania
+                this.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, { passive: false }); // passive: false wymagane dla e.preventDefault()
+    }
+
+
+    // --- Funkcje Parsowania i Tworzenia Komunikatów MIDI ---
     function parseMidiMessage(midiData) {
         const rawData = midiData.rawData || midiData;
         const statusByte = rawData[0];
@@ -463,7 +498,7 @@
         updateDeviceLists();
         midiAccess.onstatechange = updateDeviceLists;
         updateProgrammingModeUI(); 
-        updateSessionTitle(); // Inicjalizacja tytułu
+        updateSessionTitle(); 
     }
 
     function onMIDIFailure(error) {
@@ -518,7 +553,6 @@
         updateProgrammingModeUI();
     });
     
-    // --- Obsługa trybu programowania i interfejsu ---
     programmingModeToggle.addEventListener('change', (e) => {
         programmingMode = e.target.checked;
         updateProgrammingModeUI();
@@ -548,6 +582,17 @@
         loadBtnTrigger.disabled = isDisabled;
         loadFileInput.disabled = isDisabled;
         clearBtn.disabled = isDisabled;
+        
+        // Aktualizacja stanu drag&drop
+        if (isDisabled) {
+            dropZone.style.opacity = '0.5';
+            dropZone.style.cursor = 'not-allowed';
+            dropZone.title = "Włącz Tryb Programowania, aby wczytać plik.";
+        } else {
+            dropZone.style.opacity = '1';
+            dropZone.style.cursor = 'pointer';
+             dropZone.title = "Upuść plik .json, aby wczytać mapowanie";
+        }
     }
 
 
@@ -596,7 +641,7 @@
     }
 
 
-    // --- Główna logika przetwarzania komunikatów (bez zmian) ---
+    // --- Główna logika przetwarzania komunikatów ---
     function onMIDIMessage(event) {
         const rawData = event.data;
         if (rawData[0] >= 0xF8) return; 
@@ -697,33 +742,27 @@
         row.id = 'row-' + key;
         const isDeleteDisabled = !programmingMode;
 
-        // Kanał
         let cell = document.createElement('td');
         cell.textContent = originalParsedMsg.channel;
         row.appendChild(cell);
 
-        // Komenda
         cell = document.createElement('td');
         cell.textContent = originalParsedMsg.command;
         row.appendChild(cell);
 
-        // Numer (Źródło)
         cell = document.createElement('td');
         cell.textContent = originalParsedMsg.paramKey !== undefined ? getNoteDisplay(originalParsedMsg.command, originalParsedMsg.paramKey) : '---';
         row.appendChild(cell);
 
-        // Strzałka
         cell = document.createElement('td');
         cell.textContent = '->';
         cell.style.textAlign = 'center';
         row.appendChild(cell);
 
-        // Parametry Docelowe
         cell = document.createElement('td');
         cell.appendChild(createTargetInputGroup(key, targetParams));
         row.appendChild(cell);
         
-        // Przełącznik Learn
         cell = document.createElement('td');
         cell.style.textAlign = 'center';
         const learnCheckbox = document.createElement('input');
@@ -736,7 +775,6 @@
         cell.appendChild(learnCheckbox);
         row.appendChild(cell);
         
-        // Akcje (Usuń)
         cell = document.createElement('td');
         cell.style.textAlign = 'center';
         const deleteBtn = document.createElement('button');
@@ -764,6 +802,8 @@
         channelInput.placeholder = 'Ch';
         channelInput.dataset.targetType = 'channel';
         channelInput.addEventListener('change', (e) => handleTargetChange(e, key));
+        // DODANO: Obsługa scrolla
+        addScrollSupport(channelInput);
         group.appendChild(channelInput);
 
         const commandSelect = document.createElement('select');
@@ -783,6 +823,8 @@
         paramInput.placeholder = 'Nr (0-127)';
         paramInput.dataset.targetType = 'param';
         paramInput.addEventListener('change', (e) => handleTargetChange(e, key));
+        // DODANO: Obsługa scrolla
+        addScrollSupport(paramInput);
         
         if (currentTarget.command === 'Pitch Bend' || currentTarget.command === 'Channel Pressure') {
              paramInput.style.display = 'none';
@@ -845,9 +887,8 @@
     }
 
 
-    // --- Logika wczytywania i zapisywania ---
+    // --- Zapisywanie, Wczytywanie i Czyszczenie ---
 
-    // Nowa funkcja do obsługi wczytanego pliku
     function handleLoadedFile(file) {
          const reader = new FileReader();
          reader.onload = (event) => {
@@ -859,7 +900,7 @@
 
                 mappings = loadedMappings;
                 rebuildTableUI();
-                sessionFileName = file.name; // Ustaw nazwę sesji
+                sessionFileName = file.name; 
                 updateSessionTitle();
                 setStatus(`Mapowanie wczytane pomyślnie z pliku: **${sessionFileName}**`, true, 'ok');
             } catch (err) {
@@ -896,7 +937,7 @@
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
         
-        sessionFileName = `${filename}.json`; // Ustaw nową nazwę sesji
+        sessionFileName = `${filename}.json`; 
         updateSessionTitle();
         setStatus(`Mapowanie zapisane do pliku: **${sessionFileName}**`, true, 'ok');
     });
@@ -922,7 +963,7 @@
         if(confirm("Czy na pewno chcesz wyczyścić całą listę mapowań i zresetować nazwę sesji?")) {
             mappings = {};
             learningKey = null; 
-            sessionFileName = 'Bez nazwy sesji'; // Reset nazwy sesji
+            sessionFileName = 'Bez nazwy sesji'; 
             rebuildTableUI();
             updateSessionTitle();
             updateProgrammingModeUI();
@@ -957,11 +998,9 @@
     }
     
     // --- Obsługa Drag and Drop ---
-    
-    // Zapobieganie domyślnemu zachowaniu przeglądarki
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, preventDefaults, false);
-      document.body.addEventListener(eventName, preventDefaults, false); // Globalnie, aby zapobiec otwarciu pliku w nowej karcie
+      document.body.addEventListener(eventName, preventDefaults, false); 
     });
 
     function preventDefaults (e) {
@@ -969,7 +1008,6 @@
       e.stopPropagation();
     }
 
-    // Zmiana stylu przy przeciąganiu nad obszarem
     ['dragenter', 'dragover'].forEach(eventName => {
       dropZone.addEventListener(eventName, () => {
           if (programmingMode) dropZone.classList.add('dragover');
@@ -982,7 +1020,6 @@
       }, false);
     });
 
-    // Obsługa upuszczenia pliku
     dropZone.addEventListener('drop', (e) => {
         if (!programmingMode) {
              setStatus("Nie można wczytać pliku w Trybie Pracy. Włącz 'Tryb Programowania'.", false, 'error');
@@ -997,7 +1034,6 @@
              setStatus("Upuszczony plik musi być plikiem .json.", false, 'error');
         }
     }, false);
-
 
 </script>
 </body>
