@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>MTC Generator</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #fff; display: flex; justify-content: center; padding-top: 50px; }
+        .box { background: #252525; padding: 25px; border-radius: 12px; border: 1px solid #00d1b2; width: 380px; text-shadow: 1px 1px 2px #000; }
+        .display { font-family: 'Courier New', monospace; font-size: 2.8rem; color: #00ff41; background: #000; padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; border: 2px solid #333; }
+        .grid { display: grid; gap: 12px; margin-bottom: 15px; }
+        select, input, button { padding: 12px; background: #333; color: #fff; border: 1px solid #444; border-radius: 6px; font-size: 1rem; }
+        button { cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #444; border-color: #00d1b2; }
+        .btn-start { background: #00d1b2; color: #000; }
+        .btn-reset { background: #ff3860; }
+        .time-inputs { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; }
+        .time-inputs input { width: 55px; text-align: center; font-size: 1.1rem; }
+        label { font-size: 0.8rem; color: #888; margin-bottom: 4px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div class="display" id="display">00:00:00:00</div>
+    
+    <div class="grid">
+        <div>
+            <label>WYJŚCIE MIDI:</label>
+            <select id="midi-out" style="width: 100%"><option>Szukanie urządzeń...</option></select>
+        </div>
+        <div>
+            <label>FORMAT (FPS):</label>
+            <select id="fps" style="width: 100%">
+                <option value="24">24 fps</option>
+                <option value="25">25 fps</option>
+                <option value="29.97">30 Drop-Frame</option>
+                <option value="30">30 fps</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="time-inputs">
+        <input type="number" id="in-h" value="0" min="0" max="23">
+        <input type="number" id="in-m" value="0" min="0" max="59">
+        <input type="number" id="in-s" value="0" min="0" max="59">
+        <input type="number" id="in-f" value="0" min="0" max="29">
+    </div>
+
+    <div class="grid">
+        <button class="btn-start" id="start">START / STOP</button>
+        <button id="pause">PAUZA</button>
+        <button class="btn-reset" id="reset">RESET</button>
+    </div>
+</div>
+
+<script>
+/**
+ * Ref: kod wawelski
+ * Zoptymalizowany pod kątem uprawnień MIDI
+ */
+let midiAccess = null;
+let midiOut = null;
+let isPlaying = false;
+let timer = null;
+let h=0, m=0, s=0, f=0, seq=0;
+
+// INICJALIZACJA - TYLKO RAZ PYTA O ZGODĘ
+navigator.requestMIDIAccess().then(access => {
+    midiAccess = access;
+    const outSelect = document.getElementById('midi-out');
+    
+    const updatePorts = () => {
+        outSelect.innerHTML = '';
+        if (midiAccess.outputs.size === 0) {
+            outSelect.innerHTML = '<option>Brak urządzeń</option>';
+            return;
+        }
+        midiAccess.outputs.forEach(port => {
+            let opt = new Option(port.name, port.id);
+            outSelect.add(opt);
+        });
+        // Ustaw domyślne wyjście
+        midiOut = midiAccess.outputs.get(outSelect.value);
+    };
+
+    updatePorts();
+    midiAccess.onstatechange = updatePorts;
+
+    outSelect.onchange = () => {
+        midiOut = midiAccess.outputs.get(outSelect.value);
+    };
+}).catch(err => {
+    alert("Błąd dostępu MIDI: " + err);
+});
+
+function updateDisplay() {
+    const pad = n => String(Math.floor(n)).padStart(2, '0');
+    document.getElementById('display').innerText = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(f)}`;
+}
+
+function tick() {
+    if (!midiOut) return;
+    let val = 0;
+    
+    // Prawidłowa sekwencja MTC Quarter Frame
+    switch(seq) {
+        case 0: val = f & 0x0F; break;
+        case 1: val = (f >> 4) & 0x01; break;
+        case 2: val = s & 0x0F; break;          // Sekundy Low
+        case 3: val = (s >> 4) & 0x03; break;   // Sekundy High
+        case 4: val = m & 0x0F; break;          // Minuty Low
+        case 5: val = (m >> 4) & 0x03; break;   // Minuty High (naprawione val)
+        case 6: val = h & 0x0F; break;
+        case 7: 
+            let type = { "24":0, "25":1, "29.97":2, "30":3 }[document.getElementById('fps').value];
+            val = ((h >> 4) & 0x01) | (type << 1); 
+            break;
+    }
+    
+    midiOut.send([0xF1, (seq << 4) | val]);
+    seq = (seq + 1) % 8;
+
+    if (seq === 0) { 
+        f += 2; 
+        let fpsLimit = Math.ceil(parseFloat(document.getElementById('fps').value));
+        if (f >= fpsLimit) { f -= fpsLimit; s++; }
+        if (s >= 60) { s = 0; m++; }
+        if (m >= 60) { m = 0; h = (h + 1) % 24; }
+        updateDisplay();
+    }
+}
+
+document.getElementById('start').onclick = () => {
+    if (isPlaying) { 
+        clearInterval(timer); 
+        isPlaying = false; 
+        document.getElementById('start').innerText = "START";
+    } else {
+        h = parseInt(document.getElementById('in-h').value) || 0;
+        m = parseInt(document.getElementById('in-m').value) || 0;
+        s = parseInt(document.getElementById('in-s').value) || 0;
+        f = parseInt(document.getElementById('in-f').value) || 0;
+        
+        let interval = (1000 / parseFloat(document.getElementById('fps').value)) / 4;
+        timer = setInterval(tick, interval);
+        isPlaying = true;
+        document.getElementById('start').innerText = "STOP";
+    }
+};
+
+document.getElementById('pause').onclick = () => { 
+    clearInterval(timer); 
+    isPlaying = false; 
+    document.getElementById('start').innerText = "WZNÓW";
+};
+
+document.getElementById('reset').onclick = () => { 
+    clearInterval(timer);
+    isPlaying = false;
+    h=0; m=0; s=0; f=0;
+    document.getElementById('in-h').value = 0;
+    document.getElementById('in-m').value = 0;
+    document.getElementById('in-s').value = 0;
+    document.getElementById('in-f').value = 0;
+    document.getElementById('start').innerText = "START";
+    updateDisplay();
+};
+</script>
+</body>
+</html>
