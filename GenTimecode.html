@@ -2,11 +2,11 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>MTC Generator</title>
+    <title>MTC Master - Naprawiona Pauza</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #fff; display: flex; justify-content: center; padding-top: 50px; }
-        .box { background: #252525; padding: 25px; border-radius: 12px; border: 1px solid #00d1b2; width: 380px; text-shadow: 1px 1px 2px #000; }
-        .display { font-family: 'Courier New', monospace; font-size: 2.8rem; color: #00ff41; background: #000; padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; border: 2px solid #333; }
+        .box { background: #252525; padding: 25px; border-radius: 12px; border: 1px solid #00d1b2; width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .display { font-family: 'Courier New', monospace; font-size: 2.8rem; color: #00ff41; background: #000; padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; border: 2px solid #333; box-shadow: inset 0 0 10px #000; }
         .grid { display: grid; gap: 12px; margin-bottom: 15px; }
         select, input, button { padding: 12px; background: #333; color: #fff; border: 1px solid #444; border-radius: 6px; font-size: 1rem; }
         button { cursor: pointer; font-weight: bold; transition: 0.2s; }
@@ -19,9 +19,8 @@
     </style>
 </head>
 <body>
+
 <div class="box">
-<p style="color:green;font-size:20px; text-align:center;">MTC Generator</p>
-<p style= text-align:center;"><a style="color:green;font-size:20px; font-size:15px;" href="https://www.piotr-zaczek.click/">piotr-zaczek.click </a></p>
     <div class="display" id="display">00:00:00:00</div>
     
     <div class="grid">
@@ -48,7 +47,7 @@
     </div>
 
     <div class="grid">
-        <button class="btn-start" id="start">START / STOP</button>
+        <button class="btn-start" id="start">START</button>
         <button id="pause">PAUZA</button>
         <button class="btn-reset" id="reset">RESET</button>
     </div>
@@ -57,19 +56,18 @@
 <script>
 /**
  * Ref: kod wawelski
- * Zoptymalizowany pod kątem uprawnień MIDI
+ * Naprawiona logika pauzy i wznawiania
  */
 let midiAccess = null;
 let midiOut = null;
 let isPlaying = false;
+let isPaused = false; // Nowa flaga stanu
 let timer = null;
 let h=0, m=0, s=0, f=0, seq=0;
 
-// INICJALIZACJA - TYLKO RAZ PYTA O ZGODĘ
 navigator.requestMIDIAccess().then(access => {
     midiAccess = access;
     const outSelect = document.getElementById('midi-out');
-    
     const updatePorts = () => {
         outSelect.innerHTML = '';
         if (midiAccess.outputs.size === 0) {
@@ -80,18 +78,11 @@ navigator.requestMIDIAccess().then(access => {
             let opt = new Option(port.name, port.id);
             outSelect.add(opt);
         });
-        // Ustaw domyślne wyjście
         midiOut = midiAccess.outputs.get(outSelect.value);
     };
-
     updatePorts();
     midiAccess.onstatechange = updatePorts;
-
-    outSelect.onchange = () => {
-        midiOut = midiAccess.outputs.get(outSelect.value);
-    };
-}).catch(err => {
-    alert("Błąd dostępu MIDI: " + err);
+    outSelect.onchange = () => midiOut = midiAccess.outputs.get(outSelect.value);
 });
 
 function updateDisplay() {
@@ -103,14 +94,13 @@ function tick() {
     if (!midiOut) return;
     let val = 0;
     
-    // Prawidłowa sekwencja MTC Quarter Frame
     switch(seq) {
         case 0: val = f & 0x0F; break;
         case 1: val = (f >> 4) & 0x01; break;
-        case 2: val = s & 0x0F; break;          // Sekundy Low
-        case 3: val = (s >> 4) & 0x03; break;   // Sekundy High
-        case 4: val = m & 0x0F; break;          // Minuty Low
-        case 5: val = (m >> 4) & 0x03; break;   // Minuty High (naprawione val)
+        case 2: val = s & 0x0F; break;
+        case 3: val = (s >> 4) & 0x03; break;
+        case 4: val = m & 0x0F; break;
+        case 5: val = (m >> 4) & 0x03; break;
         case 6: val = h & 0x0F; break;
         case 7: 
             let type = { "24":0, "25":1, "29.97":2, "30":3 }[document.getElementById('fps').value];
@@ -132,33 +122,47 @@ function tick() {
 }
 
 document.getElementById('start').onclick = () => {
+    const startBtn = document.getElementById('start');
+    
     if (isPlaying) { 
+        // Jeśli gra, to kliknięcie STOP resetuje całkowicie
         clearInterval(timer); 
         isPlaying = false; 
-        document.getElementById('start').innerText = "START";
+        isPaused = false;
+        startBtn.innerText = "START";
     } else {
-        h = parseInt(document.getElementById('in-h').value) || 0;
-        m = parseInt(document.getElementById('in-m').value) || 0;
-        s = parseInt(document.getElementById('in-s').value) || 0;
-        f = parseInt(document.getElementById('in-f').value) || 0;
+        // Jeśli NIE gra, sprawdź czy to wznowienie po pauzie
+        if (!isPaused) {
+            // Pobierz dane z pól tylko jeśli to NIE jest pauza
+            h = parseInt(document.getElementById('in-h').value) || 0;
+            m = parseInt(document.getElementById('in-m').value) || 0;
+            s = parseInt(document.getElementById('in-s').value) || 0;
+            f = parseInt(document.getElementById('in-f').value) || 0;
+            seq = 0; // Resetuj sekwencję ćwierćramek przy nowym starcie
+        }
         
         let interval = (1000 / parseFloat(document.getElementById('fps').value)) / 4;
         timer = setInterval(tick, interval);
         isPlaying = true;
-        document.getElementById('start').innerText = "STOP";
+        isPaused = false;
+        startBtn.innerText = "STOP";
     }
 };
 
 document.getElementById('pause').onclick = () => { 
-    clearInterval(timer); 
-    isPlaying = false; 
-    document.getElementById('start').innerText = "WZNÓW";
+    if (isPlaying) {
+        clearInterval(timer); 
+        isPlaying = false; 
+        isPaused = true; // Zapamiętaj, że jesteśmy w stanie pauzy
+        document.getElementById('start').innerText = "WZNÓW";
+    }
 };
 
 document.getElementById('reset').onclick = () => { 
     clearInterval(timer);
     isPlaying = false;
-    h=0; m=0; s=0; f=0;
+    isPaused = false;
+    h=0; m=0; s=0; f=0; seq=0;
     document.getElementById('in-h').value = 0;
     document.getElementById('in-m').value = 0;
     document.getElementById('in-s').value = 0;
@@ -166,6 +170,20 @@ document.getElementById('reset').onclick = () => {
     document.getElementById('start').innerText = "START";
     updateDisplay();
 };
+
+// Pozwala na zmianę czasu w trakcie spoczynku (podgląd na żywo)
+[ 'in-h', 'in-m', 'in-s', 'in-f' ].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        if (!isPlaying) {
+            h = parseInt(document.getElementById('in-h').value) || 0;
+            m = parseInt(document.getElementById('in-m').value) || 0;
+            s = parseInt(document.getElementById('in-s').value) || 0;
+            f = parseInt(document.getElementById('in-f').value) || 0;
+            isPaused = false; // Każda manualna zmiana kasuje stan pauzy
+            updateDisplay();
+        }
+    });
+});
 </script>
 </body>
 </html>
