@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Konsoleta Monitorowa 2025 - 6 Monitorów</title>
+    <style>
+        :root {
+            --track-w: 45px;
+            --knob-w: 40px;
+            --knob-h: 70px;
+            --fader-h: 320px;
+            --label-size: 22px; 
+            --current-color: #ff6600;
+            /* Definicje kolorów dla 6 monitorów */
+            --orange: #ff6600; --green: #28a745; --blue: #007bff;
+            --purple: #a55eea; --yellow: #f7b731; --cyan: #0fbcf9;
+        }
+
+        body { 
+            background: #0a0a0a; 
+            margin: 0; padding: 0; 
+            color: white; 
+            font-family: 'Courier New', monospace; 
+            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+        }
+
+        .menu-bar {
+            flex: 0 0 auto;
+            display: flex; gap: 8px;
+            padding: 10px 15px;
+            background: #111;
+            border-bottom: 2px solid #222;
+            align-items: center;
+            flex-wrap: wrap; /* Zawijanie przycisków na mniejszych ekranach */
+        }
+
+        .btn {
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-family: inherit;
+        }
+
+        #fullscreen-btn { background: #333; color: #fff; margin-right: 10px; }
+
+        .monitor-btn { background: #222; color: #555; border: 1px solid #333; }
+        
+        /* Style aktywne dla 6 monitorów */
+        .monitor-btn.active[data-num="1"] { background: var(--orange); color: white; border-color: white; }
+        .monitor-btn.active[data-num="2"] { background: var(--green); color: white; border-color: white; }
+        .monitor-btn.active[data-num="3"] { background: var(--blue); color: white; border-color: white; }
+        .monitor-btn.active[data-num="4"] { background: var(--purple); color: white; border-color: white; }
+        .monitor-btn.active[data-num="5"] { background: var(--yellow); color: white; border-color: white; }
+        .monitor-btn.active[data-num="6"] { background: var(--cyan); color: white; border-color: white; }
+
+        .console-container {
+            flex: 1 1 auto;
+            width: 100%;
+            overflow-x: auto; overflow-y: hidden;
+            display: flex; flex-direction: column;
+            background: #0f0f0f;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .mixer-surface {
+            flex: 0 0 auto;
+            display: flex; gap: 6px; 
+            padding: 0; width: max-content;
+        }
+
+        .fader-system {
+            display: flex; flex-direction: column;
+            align-items: center;
+            background: #161616;
+            padding: 10px 5px 15px 5px;
+            border-right: 1px solid #222;
+            border-bottom: 1px solid #222;
+            height: 440px; 
+        }
+
+        .scroll-empty-zone {
+            flex: 1 1 auto; width: 100%;
+            background: transparent;
+            touch-action: pan-x; min-height: 100px;
+        }
+
+        .label-container {
+            margin-bottom: 10px; font-size: var(--label-size);
+            font-weight: bold; text-align: center;
+        }
+
+        .id-label { color: #555; font-size: 16px; }
+        .desc-label { color: #fff; width: 8ch; white-space: pre; display: block; }
+
+        .fader-wrapper {
+            position: relative; width: var(--track-w);
+            height: var(--fader-h);
+            display: flex; justify-content: center;
+        }
+
+        .dynamic-track {
+            position: absolute; width: var(--track-w); height: 100%;
+            background: var(--current-color);
+            border-radius: 2px; z-index: 1;
+            transition: background 0.2s;
+        }
+
+        .console-input {
+            appearance: none; -webkit-appearance: none;
+            background: transparent !important;
+            width: var(--knob-w); height: 100%;
+            writing-mode: vertical-lr; direction: rtl;
+            margin: 0; z-index: 2; outline: none; touch-action: none;
+        }
+
+        .console-input::-webkit-slider-thumb {
+            appearance: none; -webkit-appearance: none;
+            width: var(--knob-w); height: var(--knob-h);
+            background: #d1d1d1 linear-gradient(to bottom, #fff 0%, #d1d1d1 45%, #444 50%, #d1d1d1 55%, #fff 100%) !important;
+            border: 1px solid #888;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            background-image: linear-gradient(#000, #000);
+            background-size: 100% 4px;
+            background-repeat: no-repeat; background-position: center;
+        }
+
+        .console-container::-webkit-scrollbar { height: 10px; }
+        .console-container::-webkit-scrollbar-thumb { background: #222; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="menu-bar">
+    <button class="btn" id="fullscreen-btn">FULL_SCR</button>
+    <button class="btn monitor-btn active" data-num="1" onclick="switchMonitor(1, 'var(--orange)')">MONITOR 1</button>
+    <button class="btn monitor-btn" data-num="2" onclick="switchMonitor(2, 'var(--green)')">MONITOR 2</button>
+    <button class="btn monitor-btn" data-num="3" onclick="switchMonitor(3, 'var(--blue)')">MONITOR 3</button>
+    <button class="btn monitor-btn" data-num="4" onclick="switchMonitor(4, 'var(--purple)')">MONITOR 4</button>
+    <button class="btn monitor-btn" data-num="5" onclick="switchMonitor(5, 'var(--yellow)')">MONITOR 5</button>
+    <button class="btn monitor-btn" data-num="6" onclick="switchMonitor(6, 'var(--cyan)')">MONITOR 6</button>
+</div>
+
+<div class="console-container">
+    <div class="mixer-surface" id="mixer"></div>
+    <div class="scroll-empty-zone"></div>
+</div>
+
+<script>
+    const KONFIGURACJA = [
+        { id: "001", desc: "WOKAL" },
+        { id: "002", desc: "GITARA" },
+        { id: "003", desc: "STOPA" }
+    ];
+
+    let aktualnyMonitor = 1;
+    const totalChannels = 120;
+    // Pamięć dla 6 monitorów
+    const stanySuwakow = { 1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {} };
+    const mixer = document.getElementById('mixer');
+
+    document.getElementById('fullscreen-btn').addEventListener('click', () => {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+    });
+
+    function switchMonitor(num, colorVar) {
+        aktualnyMonitor = num;
+        document.querySelectorAll('.monitor-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.monitor-btn[data-num="${num}"]`).classList.add('active');
+        
+        // Dynamiczna zmiana koloru szyny
+        document.documentElement.style.setProperty('--current-color', `var(--${colorVar.match(/--(\w+)/)[1]})`);
+        
+        document.querySelectorAll('.console-input').forEach(slider => {
+            slider.value = stanySuwakow[num][slider.dataset.id] || 0;
+        });
+    }
+
+    async function wyslijKomunikat(id, val) {
+        const url = `data=${id}_${aktualnyMonitor}_${val}`;
+        try { await fetch(url, { mode: 'no-cors' }); } catch (e) {}
+    }
+
+    function formatDesc(text) {
+        let clean = text.toUpperCase();
+        return clean.length > 8 ? clean.substring(0, 8) : clean.padEnd(8, " "); 
+    }
+
+    for (let i = 0; i < totalChannels; i++) {
+        const techId = String(i + 1).padStart(3, '0');
+        const configEntry = KONFIGURACJA[i] || { id: techId, desc: `CH_${techId}` };
+        const cleanDesc = formatDesc(configEntry.desc);
+
+        const channelDiv = document.createElement('div');
+        channelDiv.className = 'fader-system';
+        channelDiv.innerHTML = `
+            <div class="label-container">
+                <div class="id-label">${techId}</div>
+                <div class="desc-label">${cleanDesc}</div>
+            </div>
+            <div class="fader-wrapper">
+                <div class="dynamic-track"></div>
+                <input type="range" min="0" max="100" value="0" 
+                       class="console-input" data-id="${techId}"
+                       oninput="handleSlider(this)">
+            </div>
+        `;
+        mixer.appendChild(channelDiv);
+    }
+
+    let timeout;
+    function handleSlider(slider) {
+        const id = slider.dataset.id;
+        const val = slider.value;
+        stanySuwakow[aktualnyMonitor][id] = val;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => wyslijKomunikat(id, val), 150);
+    }
+</script>
+</body>
+</html>
