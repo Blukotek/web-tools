@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>SCENARIUSZ AKTYWNY ver: 7.3.65</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #1a1a1a; }
+        .main-container { display: flex; flex-direction: column; height: 100vh; }
+        .tech-bar { height: 60px; background: #2c3e50; color: white; display: flex; align-items: center; padding: 0 20px; gap: 12px; flex-shrink: 0; z-index: 100; }
+        #file-upload { display: none; }
+        .btn-tech { background-color: #34495e; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; border: 1px solid #5d6d7e; text-transform: uppercase; }
+        .mode-play { background-color: #27ae60 !important; border-color: #2ecc71; }
+        .mode-edit-active { background-color: #e74c3c !important; border-color: #c0392b; }
+        .edit-toolbar { height: 80px; background: #34495e; border-top: 1px solid #2c3e50; display: none; align-items: center; padding: 0 20px; gap: 10px; flex-shrink: 0; justify-content: flex-end; }
+        .btn-edit-big { height: 55px; padding: 0 15px; font-size: 13px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; text-transform: uppercase; }
+        .workspace { display: flex; flex: 1; overflow: hidden; }
+        .content-area { display: flex; flex-direction: column; flex: 1; overflow: hidden; position: relative; }
+        #top-window { height: 65%; overflow-y: auto; background: white; outline: none; font-size: 22px; color: black; scroll-behavior: smooth; }
+        #bottom-window { flex: 1; overflow-y: auto; background: #dce4eb; border-top: 5px solid #2c3e50; font-size: 22px; color: #555; scroll-behavior: smooth; }
+        .resizer { height: 12px; background: #34495e; cursor: ns-resize; flex-shrink: 0; }
+        .docx-content { padding: 40px; padding-bottom: 500px; line-height: 1.6; color: black; }
+        .midi-tag { color: #ff0000 !important; font-weight: bold; display: inline-block; }
+        .side-nav { width: 85px; background: #222; border-left: 2px solid #444; display: flex; flex-direction: column; align-items: center; padding: 15px 0; gap: 12px; flex-shrink: 0; overflow-y: auto; }
+        .scene-toggle-box { width: 68px; height: 35px; border-radius: 4px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 900; cursor: pointer; background: #333; color: #777; text-align: center; }
+        .scene-toggle-box.active { background: #d35400; color: white; border-color: #e67e22; }
+        .btn-big { width: 68px; height: 55px; border-radius: 8px; border: none; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; cursor: pointer; text-align: center; text-transform: uppercase; line-height: 1.1; box-shadow: 0 3px 6px rgba(0,0,0,0.5); }
+        .midi-container { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        #midi-display { background: #000; color: #0f0; font-family: monospace; padding: 5px 10px; border-radius: 4px; min-width: 80px; text-align: center; font-size: 11px; border: 1px solid #333; }
+        .midi-link { font-size: 9px; color: #bdc3c7; text-decoration: none; font-weight: bold; }
+        .midi-link:hover { color: #ecf0f1; }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <header class="tech-bar">
+        <button onclick="toggleFullscreen()" class="btn-tech">PEŁNY EKRAN</button>
+        <input type="file" id="file-upload" accept=".docx,.html,.htm" />
+        <label for="file-upload" class="btn-tech">OTWÓRZ PLIK</label>
+        <button id="export-btn" class="btn-tech" style="background:#2980b9">ZAPISZ</button>
+        <span id="display-file-name" style="flex:1; margin-left:15px; font-size:11px; font-weight:900;">...</span>
+        <button class="btn-tech" style="background:#95a5a6" onclick="toggleSideNav()">NAWIGACJA</button>
+        <button id="mode-toggle" class="btn-tech mode-play" onclick="toggleMainMode()">GRAJ</button>
+        <select id="midi-select" class="btn-tech"><option value="">MIDI...</option></select>
+        
+        <div class="midi-container">
+            <div id="midi-display">--</div>
+            <a href="https://piotr-zaczek.click" target="_blank" class="midi-link">piotr-zaczek.click</a>
+        </div>
+    </header>
+
+    <div id="toolbar-edit" class="edit-toolbar">
+        <button class="btn-edit-big" onclick="changeFontSize(3)">A +</button>
+        <button class="btn-edit-big" onclick="changeFontSize(-3)">A -</button>
+        <button id="btn-italic" class="btn-edit-big" onclick="toggleItalicManual()" style="font-size:20px;">/</button>
+        <button class="btn-edit-big" style="background:#32cd32; color:black" onclick="applyColor('#32cd32')">LIME</button>
+        <button class="btn-edit-big" style="background:#ff69b4; color:black" onclick="applyColor('#ff69b4')">PINK</button>
+        <button class="btn-edit-big" style="background:#00bfff; color:black" onclick="applyColor('#00bfff')">BLUE</button>
+        <button class="btn-edit-big" style="background:#ecf0f1; color:#2c3e50;" onclick="clearColorsOnly()">CZYŚĆ</button>
+        <button class="btn-edit-big" style="background:#444; color:white" onclick="toggleBottomWindow()">UKRYJ DÓŁ</button>
+    </div>
+
+    <div class="workspace">
+        <div class="content-area">
+            <div id="top-window" contenteditable="false" oninput="syncWindows()" onkeydown="handleGlobalKeydown(event)"><div id="content-top" class="docx-content">Wczytaj dokument...</div></div>
+            <div class="resizer" id="dragMe"></div>
+            <div id="bottom-window"><div id="content-bottom" class="docx-content"></div></div>
+        </div>
+        
+        <nav id="side-nav" class="side-nav">
+            <div id="scene-toggle" class="scene-toggle-box active" onclick="toggleSceneMode()">W SCENIE: ON</div>
+            <button class="btn-big" style="background:#f1c40f; color:black" onclick="manualTopOnly('current')">AKTUALNE<br>MIDI</button>
+            <button class="btn-big" style="background:#e74c3c; color:white" onclick="manualTopOnly('next')">NASTĘPNE<br>MIDI</button>
+            <button class="btn-big" style="background:#7f8c8d; color:white" onclick="scrollToVisualOnly('[style*=\'background-color\'], .marker-lime, .marker-pink, .marker-blue')">NASTĘPNY<br>KOLOR</button>
+            <button class="btn-big" style="background:#32cd32; color:black" onclick="scrollToVisualOnly('[style*=\'rgb(50, 205, 50)\'], .marker-lime')">LIME</button>
+            <button class="btn-big" style="background:#ff69b4; color:black" onclick="scrollToVisualOnly('[style*=\'rgb(255, 105, 180)\'], .marker-pink')">PINK</button>
+            <button class="btn-big" style="background:#00bfff; color:black" onclick="scrollToVisualOnly('[style*=\'rgb(0, 191, 255)\'], .marker-blue')">BLUE</button>
+            <div style="flex:1"></div>
+            <button class="btn-big" style="background:#444; color:white" onclick="toggleBottomWindow()">UKRYJ<br>DÓŁ</button>
+        </nav>
+    </div>
+</div>
+
+<script>
+    const topWin = document.getElementById('top-window');
+    const bottomWin = document.getElementById('bottom-window');
+    const contentTop = document.getElementById('content-top');
+    const contentBottom = document.getElementById('content-bottom');
+    const italicBtn = document.getElementById('btn-italic');
+    const fileNameDisplay = document.getElementById('display-file-name');
+    
+    let isItalicForced = true;
+    let isSceneMode = true;
+    let currentFontSize = 22;
+    let currentRawFileName = "scenariusz";
+
+    function syncWindows() { contentBottom.innerHTML = contentTop.innerHTML; }
+
+    function handleGlobalKeydown(e) {
+        if (e.key === " ") {
+            const sel = window.getSelection();
+            if (sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                const parent = range.commonAncestorContainer.parentElement;
+                if (parent.style.backgroundColor || parent.className.includes('marker-')) {
+                    e.preventDefault();
+                    document.execCommand('hiliteColor', false, 'transparent');
+                    const space = document.createTextNode("\u00A0");
+                    range.insertNode(space);
+                    range.setStartAfter(space);
+                    range.setEndAfter(space);
+                    sel.removeAllRanges(); sel.addRange(range);
+                    if (isItalicForced) document.execCommand('italic', false, null);
+                    syncWindows(); return;
+                }
+            }
+        }
+        if (isItalicForced && !document.queryCommandState('italic')) document.execCommand('italic', false, null);
+    }
+
+    async function initMIDI() {
+        try {
+            const midi = await navigator.requestMIDIAccess();
+            const select = document.getElementById('midi-select');
+            const update = () => { 
+                select.innerHTML = '<option value="">MIDI...</option>'; 
+                midi.inputs.forEach(i => select.add(new Option(i.name, i.id))); 
+            };
+            midi.onstatechange = update; update();
+            select.onchange = function() {
+                midi.inputs.forEach(i => i.onmidimessage = (i.id === this.value) ? (m) => {
+                    const msg = `${getMidiStatus(m.data[0])}:${m.data[1]}:${m.data[2]}`;
+                    document.getElementById('midi-display').textContent = msg; 
+                    processMidiSignal(msg);
+                } : null);
+            };
+        } catch(e) {}
+    }
+
+    function processMidiSignal(msg) {
+        const isEditMode = topWin.getAttribute('contenteditable') === "true";
+        if (isEditMode && (document.activeElement === topWin || topWin.contains(document.activeElement))) {
+            const sel = window.getSelection();
+            if (sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                const frag = document.createDocumentFragment();
+                const tag = document.createElement('span'); 
+                tag.className = 'midi-tag'; 
+                tag.innerText = `{* ${msg} *}`;
+                frag.appendChild(document.createTextNode("\u00A0"));
+                frag.appendChild(tag);
+                frag.appendChild(document.createTextNode("\u00A0"));
+                range.insertNode(frag);
+                range.collapse(false);
+                syncWindows();
+            }
+        } else if (!isEditMode) {
+            const topTags = Array.from(contentTop.querySelectorAll('.midi-tag'));
+            const matchIndex = topTags.findIndex(t => t.innerText.includes(msg));
+            if (matchIndex !== -1) {
+                topTags[matchIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const bottomTags = Array.from(contentBottom.querySelectorAll('.midi-tag'));
+                if (bottomTags[matchIndex + 1]) bottomTags[matchIndex + 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    }
+
+    function updateFontDisplay() { 
+        const sizeStr = currentFontSize + "px";
+        topWin.style.fontSize = sizeStr; 
+        bottomWin.style.fontSize = sizeStr; 
+    }
+
+    function changeFontSize(d) { 
+        currentFontSize = parseInt(currentFontSize) + d; 
+        if (currentFontSize < 10) currentFontSize = 10;
+        updateFontDisplay(); 
+    }
+
+    function clearColorsOnly() {
+        topWin.focus(); document.execCommand('hiliteColor', false, 'transparent'); syncWindows();
+    }
+
+    function applyColor(color) { topWin.focus(); document.execCommand('hiliteColor', false, color); syncWindows(); }
+    
+    function toggleItalicManual() { 
+        isItalicForced = !isItalicForced; 
+        italicBtn.style.background = isItalicForced ? "#d35400" : "#95a5a6"; 
+        topWin.focus();
+        document.execCommand('italic', false, null); 
+    }
+
+    function toggleMainMode() {
+        const isEdit = topWin.getAttribute('contenteditable') === "true";
+        topWin.setAttribute('contenteditable', !isEdit);
+        document.getElementById('mode-toggle').innerText = isEdit ? "GRAJ" : "EDYCJA";
+        document.getElementById('mode-toggle').className = isEdit ? "btn-tech mode-play" : "btn-tech mode-edit-active";
+        document.getElementById('toolbar-edit').style.display = isEdit ? 'none' : 'flex';
+        if (!isEdit) { 
+            topWin.focus(); 
+            document.execCommand('italic', false, null); 
+        }
+    }
+
+    function toggleSideNav() { const nav = document.getElementById('side-nav'); nav.style.display = nav.style.display === 'none' ? 'flex' : 'none'; }
+    function toggleBottomWindow() { const h = bottomWin.style.display === 'none'; bottomWin.style.display = h ? 'block' : 'none'; topWin.style.height = h ? '65%' : '100%'; }
+    function toggleSceneMode() { isSceneMode = !isSceneMode; const b = document.getElementById('scene-toggle'); b.classList.toggle('active', isSceneMode); b.innerText = isSceneMode ? "W SCENIE: ON" : "W SCENIE: OFF"; }
+    function toggleFullscreen() { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    function getMidiStatus(s) { const t=s&0xf0; return t===0x80?"NF":t===0x90?"NO":t===0xB0?"CC":t===0xC0?"PC":"UD"; }
+    
+    function manualTopOnly(type) {
+        const str = document.getElementById('midi-display').textContent.trim();
+        const midis = Array.from(contentTop.querySelectorAll('.midi-tag'));
+        let idx = type === 'next' ? midis.findIndex(m => m.offsetTop > topWin.scrollTop + 50) : midis.findIndex(t => t.innerText.includes(str));
+        if (idx !== -1) midis[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function scrollToVisualOnly(selector) {
+        const scrollPos = topWin.scrollTop; 
+        const targets = Array.from(topWin.querySelectorAll(selector)); 
+        const midis = Array.from(topWin.querySelectorAll('.midi-tag'));
+        const nextTarget = targets.find(el => el.offsetTop > scrollPos + 50);
+        if (nextTarget) { 
+            if (isSceneMode) { 
+                const blocker = midis.find(m => m.offsetTop > scrollPos + 50 && m.offsetTop < nextTarget.offsetTop); 
+                if (blocker) return; 
+            } 
+            nextTarget.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+        }
+    }
+
+    document.getElementById('export-btn').onclick = () => {
+        const now = new Date();
+        const pad = (n) => n.toString().padStart(2, '0');
+        const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const suggestedName = `${currentRawFileName}_${dateStr}.html`;
+        const fileName = prompt("Podaj nazwę pliku:", suggestedName);
+        if (!fileName) return;
+        const finalName = fileName.endsWith('.html') ? fileName : fileName + ".html";
+        const fileContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>.midi-tag{color:red;font-weight:bold;}.marker-lime{background:#32cd32;}.marker-pink{background:#ff69b4;}.marker-blue{background:#00bfff;}</style></head><body><div id="edit-zone" data-font="${currentFontSize}">${contentTop.innerHTML}</div></body></html>`;
+        const link = document.createElement('a'); 
+        link.href = URL.createObjectURL(new Blob([fileContent], {type:'text/html'})); 
+        link.download = finalName; 
+        link.click();
+    };
+
+    document.getElementById('file-upload').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        currentRawFileName = file.name.replace(/\.[^/.]+$/, "");
+        fileNameDisplay.innerText = file.name.toUpperCase();
+        const reader = new FileReader();
+        reader.onload = ev => {
+            if (file.name.endsWith('.docx')) {
+                mammoth.convertToHtml({arrayBuffer: ev.target.result}).then(res => { contentTop.innerHTML = contentBottom.innerHTML = res.value; });
+            } else {
+                const doc = new DOMParser().parseFromString(ev.target.result, 'text/html');
+                const zone = doc.getElementById('edit-zone');
+                if (zone) {
+                    currentFontSize = parseInt(zone.getAttribute('data-font')) || 22; updateFontDisplay();
+                    contentTop.innerHTML = contentBottom.innerHTML = zone.innerHTML;
+                } else { contentTop.innerHTML = contentBottom.innerHTML = doc.body.innerHTML; }
+            }
+        };
+        file.name.endsWith('.docx') ? reader.readAsArrayBuffer(file) : reader.readAsText(file);
+    };
+
+    document.getElementById('dragMe').onmousedown = () => {
+        document.onmousemove = e => { let p = (e.clientY/window.innerHeight)*100; if(p>10 && p<90) topWin.style.height = p+'%'; };
+        document.onmouseup = () => document.onmousemove = null;
+    };
+
+    updateFontDisplay();
+    initMIDI();
+    italicBtn.style.background = isItalicForced ? "#d35400" : "#95a5a6";
+</script>
+</body>
+</html>
