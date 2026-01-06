@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>SCENARIUSZ AKTYWNY</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #1a1a1a; }
+        .main-container { display: flex; flex-direction: column; height: 100vh; }
+        
+        .tech-bar { 
+            height: 60px; background: #2c3e50; color: white; 
+            display: flex; align-items: center; padding: 0 20px; gap: 12px;
+            flex-shrink: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        #file-upload { display: none; }
+        .btn-tech {
+            background-color: #34495e; color: white; padding: 8px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 11px;
+            font-weight: bold; border: 1px solid #5d6d7e; text-transform: uppercase;
+        }
+        .btn-save { background-color: #2980b9; border-color: #3498db; }
+        .file-title { font-size: 1.1em; font-weight: 900; color: #ffffff; flex: 1; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 10px; }
+
+        .controls-group { display: flex; align-items: center; gap: 10px; }
+        #mode-toggle { padding: 8px 14px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-size: 11px; min-width: 85px; }
+        .mode-normal { background-color: #27ae60; color: white; }
+        .mode-edit { background-color: #e74c3c; color: white; }
+
+        #midi-select { background: #1a252f; color: #2ecc71; border: 1px solid #34495e; padding: 5px; border-radius: 4px; font-size: 11px; }
+        #midi-display { background: #000; color: #0f0; font-family: monospace; padding: 5px 10px; border-radius: 4px; min-width: 90px; text-align: center; font-weight: bold; }
+
+        .content-area { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        
+        /* OKNA - Płynne przewijanie */
+        #top-window { height: 50%; overflow-y: auto; background: white; outline: none; text-align: left !important; scroll-behavior: smooth; }
+        #top-window[contenteditable="true"] { border-left: 10px solid #e74c3c; }
+        
+        #bottom-window { flex: 1; overflow-y: auto; background: #f4f4f4; border-top: 1px solid #ddd; text-align: left !important; scroll-behavior: smooth; }
+        
+        .resizer { height: 10px; background: #34495e; cursor: ns-resize; flex-shrink: 0; }
+        .docx-content { padding: 40px; text-align: left !important; line-height: 1.6; color: #111; display: block; width: 100%; box-sizing: border-box; }
+        
+        .midi-tag { color: #ff0000 !important; font-weight: bold; display: inline-block; }
+        .active-tag { background: yellow; border: 1px solid orange; }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <header class="tech-bar">
+        <input type="file" id="file-upload" accept=".docx,.html,.htm" />
+        <label for="file-upload" class="btn-tech">OTWÓRZ PLIK</label>
+        <button id="export-btn" class="btn-tech btn-save">ZAPISZ HTML</button>
+        <span id="display-file-name" class="file-title">BRAK DOKUMENTU</span>
+        <div class="controls-group">
+            <button id="mode-toggle" class="mode-normal">NORMAL</button>
+            <select id="midi-select"><option value="">MIDI...</option></select>
+            <div id="midi-display">---</div>
+        </div>
+    </header>
+
+    <div class="content-area" id="main-wrapper">
+        <div id="top-window" contenteditable="false" spellcheck="false">
+            <div id="content-top" class="docx-content">Wgraj plik i zacznij pracę...</div>
+        </div>
+        <div class="resizer" id="dragMe"></div>
+        <div id="bottom-window">
+            <div id="content-bottom" class="docx-content"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const topWindow = document.getElementById('top-window');
+    const bottomWindow = document.getElementById('bottom-window');
+    const contentBottom = document.getElementById('content-bottom');
+    const modeBtn = document.getElementById('mode-toggle');
+    const midiDisplay = document.getElementById('midi-display');
+    let currentFileName = "dokument.html";
+
+    // --- 1. OTWIERANIE PLIKÓW ---
+    document.getElementById('file-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        currentFileName = file.name;
+        document.getElementById('display-file-name').innerText = currentFileName.toUpperCase();
+        const reader = new FileReader();
+        
+        if (file.name.endsWith('.docx')) {
+            reader.onload = e => mammoth.convertToHtml({arrayBuffer: e.target.result}).then(res => {
+                topWindow.innerHTML = `<div class="docx-content">${res.value}</div>`;
+                syncWindows();
+            });
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = e => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(e.target.result, 'text/html');
+                const src = doc.getElementById('edit-zone') ? doc.getElementById('edit-zone').innerHTML : doc.body.innerHTML;
+                topWindow.innerHTML = `<div class="docx-content">${src}</div>`;
+                syncWindows();
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // --- 2. ZAPIS HTML ---
+    document.getElementById('export-btn').addEventListener('click', () => {
+        const content = topWindow.innerHTML;
+        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:'Segoe UI',sans-serif;padding:40px;line-height:1.6;color:#111;text-align:left;}.midi-tag{color:red!important;font-weight:bold;}#edit-zone{outline:none;}</style></head><body><div id="edit-zone" contenteditable="true">${content}</div></body></html>`;
+        const blob = new Blob([fullHtml], { type: 'text/html' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = currentFileName.replace(/\.[^/.]+$/, "") + "_SCEAKT.html";
+        link.click();
+    });
+
+    function syncWindows() {
+        contentBottom.innerHTML = topWindow.innerHTML;
+    }
+    topWindow.addEventListener('input', syncWindows);
+
+    // --- 3. NAWIGACJA SYNC (Tryb NORMAL) ---
+    function navigateSync(currentValue) {
+        const tagText = `{* ${currentValue} *}`;
+        
+        // --- LOGIKA GÓRNEGO OKNA (Aktualny tag na górę) ---
+        const topTags = Array.from(topWindow.getElementsByClassName('midi-tag'));
+        const currentTagTop = topTags.find(t => t.innerText.trim() === tagText);
+        
+        if (currentTagTop) {
+            currentTagTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // --- LOGIKA DOLNEGO OKNA (Następny tag + 5 linii) ---
+        const bottomTags = Array.from(contentBottom.getElementsByClassName('midi-tag'));
+        bottomTags.forEach(t => t.classList.remove('active-tag'));
+
+        const foundIndex = bottomTags.findIndex(t => t.innerText.trim() === tagText);
+
+        if (foundIndex !== -1 && foundIndex + 1 < bottomTags.length) {
+            const nextTag = bottomTags[foundIndex + 1];
+            nextTag.classList.add('active-tag');
+
+            const lineHeight = 26; 
+            const offset = lineHeight * 5;
+            const elementRect = nextTag.getBoundingClientRect();
+            const containerRect = bottomWindow.getBoundingClientRect();
+            
+            bottomWindow.scrollTop = (bottomWindow.scrollTop + elementRect.top) - containerRect.top - offset;
+        }
+    }
+
+    // --- 4. OBSŁUGA MIDI ---
+    async function initMIDI() {
+        if (!navigator.requestMIDIAccess) return;
+        const midi = await navigator.requestMIDIAccess();
+        const select = document.getElementById('midi-select');
+        
+        const update = () => {
+            select.innerHTML = '<option value="">MIDI...</option>';
+            midi.inputs.forEach(i => select.add(new Option(i.name, i.id)));
+        };
+        midi.onstatechange = update; update();
+
+        select.onchange = function() {
+            midi.inputs.forEach(i => i.onmidimessage = (i.id === this.value) ? (m) => {
+                const msg = `${m.data[0]}:${m.data[1]}:${m.data[2]}`;
+                midiDisplay.innerText = msg;
+                
+                if (topWindow.contentEditable === "true") {
+                    insertMidiAtCursor(msg);
+                } else {
+                    navigateSync(msg);
+                }
+            } : null);
+        };
+    }
+
+    function insertMidiAtCursor(text) {
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            const span = document.createElement("span");
+            span.className = "midi-tag";
+            span.innerHTML = ` {* ${text} *} `;
+            range.insertNode(span);
+            range.setStartAfter(span);
+            sel.removeAllRanges(); sel.addRange(range);
+            syncWindows();
+        }
+    }
+
+    // --- 5. RESIZER I TRYB ---</p>
+    const resizer = document.getElementById('dragMe');
+    resizer.addEventListener('mousedown', e => {
+        const move = e => {
+            let p = (e.clientY / window.innerHeight) * 100;
+            if (p > 10 && p < 90) topWindow.style.height = p + '%';
+        };
+        const up = () => document.removeEventListener('mousemove', move);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+
+    modeBtn.addEventListener('click', () => {
+        const isEdit = modeBtn.classList.toggle('mode-edit');
+        modeBtn.classList.toggle('mode-normal', !isEdit);
+        modeBtn.innerText = isEdit ? 'EDYCYJA' : 'NORMAL';
+        topWindow.contentEditable = isEdit;
+    });
+
+    initMIDI();
+</script>
+<p>Piotr-Zaczek.click</p>
+</body>
+</html>
