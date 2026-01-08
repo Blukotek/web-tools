@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCX-HTML-PROMPTER</title>
+    
+    <script>
+    /* ==========================================
+       TUTAJ WKLEJ KOD MAMMOTH (Ctrl+V)
+       Pobierz go stąd: https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js
+       ========================================== */
+    </script>
+
+    <style id="mainStyles">
+        :root {
+            --font-size: 162px;
+        }
+
+        body {
+            background-color: rgb(0,128,255);
+            margin: 0;
+            padding-bottom: 200px; /* Miejsce na stopkę i przyciski */
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Styl Arial Bold dla tekstu głównego */
+        #textContent {
+            color: rgb(255,255,0) !important;
+            font-family: Arial, sans-serif !important;
+            font-weight: bold !important;
+            line-height: 1.62 !important; 
+            margin: 5% !important;
+            padding-left: 35px !important; 
+            font-size: var(--font-size) !important;
+            overflow-wrap: anywhere;
+            flex-grow: 1;
+        }
+
+        /* Wyboldowane słowa z Worda */
+        #textContent b, #textContent strong {
+            color: rgb(255, 225, 0) !important;
+            font-weight: 900 !important;
+        }
+
+        /* Informacja o pliku w rogu */
+        linkInfo {
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            color: White;
+            display: block;
+            margin: 20px 0 0 5%;
+        }
+
+        /* Panel sterowania */
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            display: flex;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        button, .file-label {
+            padding: 15px 22px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            font-weight: bold;
+            color: #fff;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        button:hover, .file-label:hover { background: rgba(255, 255, 255, 0.5); }
+
+        /* Stopka z linkiem */
+        .footer-link {
+            text-align: center;
+            padding: 40px 0;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            color: white;
+        }
+        .footer-link a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+        }
+        .footer-link a:hover { opacity: 1; }
+
+        #fileInput { display: none; }
+        ::selection { background: white; color: black; }
+    </style>
+</head>
+<body>
+
+    <div id="output">
+        <linkInfo id="fileStatus"></linkInfo>
+        <div id="textContent">Wczytaj plik .docx</div>
+    </div>
+
+    <div class="footer-link">
+        <a href="https://piotr-zaczek.click" target="_blank">piotr-zaczek.click</a>
+    </div>
+
+    <div class="controls">
+        <label for="fileInput" class="file-label">Otwórz</label>
+        <input type="file" id="fileInput" accept=".docx">
+        
+        <button onclick="toggleFullScreen()">FS</button>
+        <button onclick="searchText()">Szukaj</button>
+        <button onclick="changeFontSize(10)">+</button>
+        <button onclick="changeFontSize(-10)">-</button>
+        <button onclick="saveFullPage()">Zapisz</button>
+    </div>
+
+    <script id="mainScript">
+        let currentFontSize = 162;
+        let lastSearch = "";
+
+        const rootStyle = getComputedStyle(document.documentElement);
+        currentFontSize = parseInt(rootStyle.getPropertyValue('--font-size')) || 162;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const arrayBuffer = event.target.result;
+                const options = {
+                    styleMap: [
+                        "p => p:fresh",
+                        "b => b",
+                        "strong => strong",
+                        "i => span",
+                        "u => span"
+                    ]
+                };
+
+                if (typeof mammoth === "undefined") {
+                    alert("Błąd: Biblioteka Mammoth nie została wkompilowana!");
+                    return;
+                }
+
+                mammoth.convertToHtml({arrayBuffer: arrayBuffer}, options)
+                    .then(result => {
+                        document.getElementById('textContent').innerHTML = result.value;
+                        document.getElementById('fileStatus').innerText = "Plik: " + file.name;
+                    })
+                    .catch(err => console.error(err));
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function searchText() {
+            const phrase = prompt("Szukaj w tekście:", lastSearch);
+            if (phrase !== null && phrase !== "") {
+                lastSearch = phrase;
+                if (!window.find(phrase, false, false, true, false)) {
+                    alert("Nie znaleziono frazy.");
+                }
+            }
+        }
+
+        function changeFontSize(delta) {
+            currentFontSize += delta;
+            if (currentFontSize < 10) currentFontSize = 10; 
+            document.documentElement.style.setProperty('--font-size', currentFontSize + 'px');
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        function saveFullPage() {
+            const currentLabel = document.getElementById('fileStatus').innerText;
+            const suggestedName = currentLabel.replace("Plik: ", "").replace(".docx", "") || "DOCX-HTML-PROMPTER";
+            const fileName = prompt("Nazwa pliku HTML:", suggestedName);
+            if (!fileName) return;
+
+            const styleElement = document.getElementById('mainStyles');
+            styleElement.innerHTML = styleElement.innerHTML.replace(/--font-size: \d+px;/, `--font-size: ${currentFontSize}px;`);
+
+            const currentHTML = document.documentElement.outerHTML;
+            const blob = new Blob([currentHTML], {type: 'text/html'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName + ".html";
+            link.click();
+        }
+    </script>
+</body>
+</html>
