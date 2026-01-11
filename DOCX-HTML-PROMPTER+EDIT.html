@@ -225,7 +225,7 @@ return i=this.parent.children.indexOf(this),removed=this.parent.children.splice(
             const wasEditing = isEditMode;
             if (isEditMode) toggleEditMode();
 
-            const suggestedName = originalFileName || "DOCX-HTML-PROMPTER";
+            const suggestedName = originalFileName || "DOCX-HTML-PROMPTER+EDIT";
             const fileName = prompt("Nazwa pliku HTML:", suggestedName);
             
             if (!fileName) {
