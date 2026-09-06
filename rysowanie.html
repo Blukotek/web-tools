@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edytor Kształtów</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        #toolbar {
+            display: flex;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 5px 10px;
+            border-bottom: 1px solid #ccc;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            border: 1px solid #adadad;
+            border-radius: 3px;
+            background-color: #e1e1e1;
+            cursor: pointer;
+            user-select: none;
+        }
+        .btn:hover {
+            background-color: #e5f1fb;
+            border-color: #0078d7;
+        }
+        .btn-custom { background-color: #e6ccff; }
+        .btn-text { background-color: #d1e7dd; }
+        .btn-handles { background-color: #fff2cc; }
+        .btn-edge { background-color: #fce5cd; font-weight: bold; }
+        .btn-precision { background-color: #ffe6cc; font-weight: bold; }
+        .btn-delete { background-color: #ffcccc; }
+        .btn-clear { background-color: #ffb3b3; }
+        .btn-fs { background-color: #d9e6f2; }
+        .btn-history { background-color: #e2efda; }
+        .btn-info { background-color: #cfe2f3; font-weight: bold; }
+        
+        .separator {
+            width: 2px;
+            background-color: gray;
+            height: 24px;
+            margin: 0 5px;
+        }
+        #info-label {
+            margin-left: auto;
+            font-style: italic;
+            font-size: 13px;
+            color: #333;
+        }
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background-color: black;
+            overflow: hidden;
+        }
+        
+        canvas.cursor-crosshair-black {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20" stroke="white" stroke-width="5" stroke-linecap="round"/><path d="M12 2v20M2 12h20" stroke="black" stroke-width="2.5" stroke-linecap="round"/></svg>') 12 12, crosshair;
+        }
+
+        canvas.cursor-crosshair-white {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20" stroke="black" stroke-width="5" stroke-linecap="round"/><path d="M12 2v20M2 12h20" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>') 12 12, crosshair;
+        }
+
+        canvas.cursor-dot-custom {
+            cursor: none;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 6px;
+            width: 550px;
+            max-width: 90%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-family: Arial, sans-serif;
+        }
+        .modal-content h2 { margin-bottom: 15px; color: #333; }
+        .modal-content ul { margin-left: 20px; margin-bottom: 20px; line-height: 1.6; font-size: 14px; }
+        .modal-content li { margin-bottom: 6px; }
+        
+        #keyboard-modal .modal-content {
+            width: 720px;
+            text-align: center;
+        }
+        #kb-input {
+            width: 100%;
+            font-size: 18px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+            resize: vertical;
+            height: 90px;
+            font-family: Arial, sans-serif;
+        }
+        .kb-row {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 5px;
+        }
+        .kb-btn {
+            background-color: #e1e1e1;
+            border: 1px solid #adadad;
+            border-radius: 4px;
+            padding: 10px 0;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            flex-grow: 1;
+            user-select: none;
+            min-width: 38px;
+        }
+        .kb-btn:hover { background-color: #e5f1fb; border-color: #0078d7; }
+        .kb-btn.wide { flex-grow: 2; background-color: #d1e7dd; }
+        .kb-btn.action { background-color: #cfe2f3; }
+        .kb-btn.active { background-color: #0078d7; color: white; }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            border: none;
+        }
+        .modal-btn.primary { background-color: #0078d7; color: white; }
+        .modal-btn.primary:hover { background-color: #005a9e; }
+        .modal-btn.secondary { background-color: #e1e1e1; color: #333; border: 1px solid #adadad; }
+        .modal-btn.secondary:hover { background-color: #d1d1d1; }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <button class="btn btn-custom" onclick="setTool('custom_poly')">Własny</button>
+        <button class="btn" onclick="setTool('rect')">Prostokąt</button>
+        <button class="btn" onclick="setTool('circle')">Koło</button>
+        <button class="btn" onclick="setTool('triangle')">Trójkąt</button>
+        <button class="btn btn-text" onclick="openKeyboardForNewText()">Tekst</button>
+        <button class="btn btn-handles" onclick="toggleAddVertexMode()">Dodaj uchwyt</button>
+        <button class="btn btn-edge" onclick="toggleMoveEdgeMode()">Przesuń bok</button>
+        <button class="btn btn-precision" onclick="togglePrecisionMode()">Precyzja</button>
+        
+        <div class="separator"></div>
+        
+        <button class="btn btn-history" onclick="undo()">Cofnij</button>
+        <button class="btn btn-history" onclick="redo()">Przywróć</button>
+        
+        <div class="separator"></div>
+        
+        <button class="btn btn-delete" onclick="deleteSelected()">Usuń</button>
+        <button class="btn" onclick="copySelected()">Kopiuj</button>
+        <button class="btn" onclick="pasteSelected()">Wklej</button>
+        <button class="btn btn-clear" onclick="clearAll()">Czyść wszystko</button>
+        
+        <div class="separator"></div>
+        
+        <button id="fs-btn" class="btn btn-fs" onclick="toggleFullscreen()">Full-screen</button>
+        
+        <div class="separator"></div>
+        
+        <button id="bg-btn" class="btn" onclick="toggleBackground()">Tło: Czarne</button>
+        
+        <div class="separator"></div>
+
+        <button class="btn btn-info" onclick="toggleInfoModal(true)">INFO</button>
+        
+        <div id="info-label">Tryb: Wybierz kształt</div>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="paintCanvas" class="cursor-crosshair-white"></canvas>
+    </div>
+
+    <!-- Okno modalne instrukcji -->
+    <div id="info-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Instrukcja Obsługi - Edytor Kształtów</h2>
+            <ul>
+                <li><b>Rysowanie kształtów:</b> Kliknij przycisk figury i kliknij na planszy, aby ją utworzyć.</li>
+                <li><b>Przesuwanie boków:</b> Zaznacz obiekt, kliknij "Przesuń bok", a następnie przeciągnij wybraną krawędź, aby przesunąć ją równolegle.</li>
+                <li><b>Precyzja:</b> Kliknij uchwyt, aby wyświetlić powiększony pad sterujący. Pad pozostaje w wybranym miejscu.</li>
+                <li><b>Tekst:</b> Kliknij "Tekst", wpisz wielolinijkowy tekst i umieść na planszy. Górny niebieski uchwyt obraca tekst, a dolny czerwony zmienia jego rozmiar.</li>
+                <li><b>Zaznaczanie i Przesuwanie:</b> Kliknij na dowolny obiekt, aby go zaznaczyć i przesuwać. Dwuklik edytuje tekst.</li>
+                <li><b>Reset koła / kwadratu:</b> Dwuklik na koło wyrównuje proporcje, a dwuklik na prostokąt zmienia go w kwadrat.</li>
+                <li><b>Historia (Cofnij / Przywróć):</b> Umożliwia powrót do poprzednich stanów planszy.</li>
+            </ul>
+            <div class="modal-buttons">
+                <button class="modal-btn primary" onclick="toggleInfoModal(false)">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Okno modalne z wirtualną klawiaturą -->
+    <div id="keyboard-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="kb-title">Wprowadź tekst</h2>
+            <textarea id="kb-input" autocomplete="off"></textarea>
+            
+            <div id="keyboard-layout">
+                <!-- Rząd cyfr -->
+                <div class="kb-row">
+                    <button class="kb-btn kkey" data-n="1" data-s="!" data-a="1" onclick="kbKey(this)">1</button>
+                    <button class="kb-btn kkey" data-n="2" data-s="@" data-a="2" onclick="kbKey(this)">2</button>
+                    <button class="kb-btn kkey" data-n="3" data-s="#" data-a="3" onclick="kbKey(this)">3</button>
+                    <button class="kb-btn kkey" data-n="4" data-s="$" data-a="4" onclick="kbKey(this)">4</button>
+                    <button class="kb-btn kkey" data-n="5" data-s="%" data-a="5" onclick="kbKey(this)">5</button>
+                    <button class="kb-btn kkey" data-n="6" data-s="^" data-a="6" onclick="kbKey(this)">6</button>
+                    <button class="kb-btn kkey" data-n="7" data-s="&" data-a="7" onclick="kbKey(this)">7</button>
+                    <button class="kb-btn kkey" data-n="8" data-s="*" data-a="8" onclick="kbKey(this)">8</button>
+                    <button class="kb-btn kkey" data-n="9" data-s="(" data-a="9" onclick="kbKey(this)">9</button>
+                    <button class="kb-btn kkey" data-n="0" data-s=")" data-a="0" onclick="kbKey(this)">0</button>
+                    <button class="kb-btn kkey" data-n="-" data-s="_" data-a="-" onclick="kbKey(this)">-</button>
+                    <button class="kb-btn kkey" data-n="=" data-s="+" data-a="=" onclick="kbKey(this)">=</button>
+                </div>
+                <!-- Rząd 1 -->
+                <div class="kb-row">
+                    <button class="kb-btn kkey" data-n="q" data-s="Q" data-a="ą" onclick="kbKey(this)">q</button>
+                    <button class="kb-btn kkey" data-n="w" data-s="W" data-a="ż" onclick="kbKey(this)">w</button>
+                    <button class="kb-btn kkey" data-n="e" data-s="E" data-a="ę" onclick="kbKey(this)">e</button>
+                    <button class="kb-btn kkey" data-n="r" data-s="R" data-a="ź" onclick="kbKey(this)">r</button>
+                    <button class="kb-btn kkey" data-n="t" data-s="T" data-a="ó" onclick="kbKey(this)">t</button>
+                    <button class="kb-btn kkey" data-n="y" data-s="Y" data-a="ý" onclick="kbKey(this)">y</button>
+                    <button class="kb-btn kkey" data-n="u" data-s="U" data-a="ú" onclick="kbKey(this)">u</button>
+                    <button class="kb-btn kkey" data-n="i" data-s="I" data-a="í" onclick="kbKey(this)">i</button>
+                    <button class="kb-btn kkey" data-n="o" data-s="O" data-a="ó" onclick="kbKey(this)">o</button>
+                    <button class="kb-btn kkey" data-n="p" data-s="P" data-a="ś" onclick="kbKey(this)">p</button>
+                </div>
+                <!-- Rząd 2 -->
+                <div class="kb-row">
+                    <button class="kb-btn kkey" data-n="a" data-s="A" data-a="ą" onclick="kbKey(this)">a</button>
+                    <button class="kb-btn kkey" data-n="s" data-s="S" data-a="ś" onclick="kbKey(this)">s</button>
+                    <button class="kb-btn kkey" data-n="d" data-s="D" data-a="đ" onclick="kbKey(this)">d</button>
+                    <button class="kb-btn kkey" data-n="f" data-s="F" data-a="ł" onclick="kbKey(this)">f</button>
+                    <button class="kb-btn kkey" data-n="g" data-s="G" data-a="ŋ" onclick="kbKey(this)">g</button>
+                    <button class="kb-btn kkey" data-n="h" data-s="H" data-a="ħ" onclick="kbKey(this)">h</button>
+                    <button class="kb-btn kkey" data-n="j" data-s="J" data-a="j" onclick="kbKey(this)">j</button>
+                    <button class="kb-btn kkey" data-n="k" data-s="K" data-a="ĸ" onclick="kbKey(this)">k</button>
+                    <button class="kb-btn kkey" data-n="l" data-s="L" data-a="ł" onclick="kbKey(this)">l</button>
+                    <button class="kb-btn kkey" data-n="ł" data-s="Ł" data-a="Ł" onclick="kbKey(this)">ł</button>
+                </div>
+                <!-- Rząd 3 -->
+                <div class="kb-row">
+                    <button id="kb-caps-btn" class="kb-btn action" onclick="kbToggleCaps()">Caps</button>
+                    <button id="kb-alt-btn" class="kb-btn action" onclick="kbToggleAlt()">Alt</button>
+                    <button class="kb-btn kkey" data-n="z" data-s="Z" data-a="ż" onclick="kbKey(this)">z</button>
+                    <button class="kb-btn kkey" data-n="x" data-s="X" data-a="ź" onclick="kbKey(this)">x</button>
+                    <button class="kb-btn kkey" data-n="c" data-s="C" data-a="ć" onclick="kbKey(this)">c</button>
+                    <button class="kb-btn kkey" data-n="v" data-s="V" data-a="@" onclick="kbKey(this)">v</button>
+                    <button class="kb-btn kkey" data-n="b" data-s="B" data-a="{" onclick="kbKey(this)">b</button>
+                    <button class="kb-btn kkey" data-n="n" data-s="N" data-a="ń" onclick="kbKey(this)">n</button>
+                    <button class="kb-btn kkey" data-n="m" data-s="M" data-a="μ" onclick="kbKey(this)">m</button>
+                    <button class="kb-btn kkey" data-n="." data-s=":" data-a="." onclick="kbKey(this)">.</button>
+                    <button class="kb-btn kkey" data-n="," data-s=";" data-a="," onclick="kbKey(this)">,</button>
+                </div>
+                <!-- Rząd spacji -->
+                <div class="kb-row">
+                    <button class="kb-btn wide kkey" data-n=" " data-s=" " data-a=" " onclick="kbKey(this)">Spacja</button>
+                    <button class="kb-btn action" onclick="kbEnter()">⏎ Enter</button>
+                    <button class="kb-btn action" onclick="kbBackspace()">⌫ Backspace</button>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" onclick="closeKeyboardModal()">Anuluj</button>
+                <button class="modal-btn primary" onclick="confirmKeyboardModal()">Zatwierdź</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+class Shape {
+    constructor(shapeType, x, y, customPts = null, customText = null) {
+        this.type = shapeType; 
+        this.cx = x;
+        this.cy = y;
+        this.angle = 0.0;
+        this.w = 150;
+        this.h = 40; 
+        this.local_pts = [];
+        this.text = customText || "Tekst";
+
+        if (this.type === "rect") {
+            this.local_pts = [[-75, -50], [75, -50], [75, 50], [-75, 50]];
+        } else if (this.type === "triangle") {
+            this.local_pts = [[0, -50], [-75, 50], [75, 50]];
+        } else if (this.type === "text") {
+            this.local_pts = [];
+            this.h = 40;
+        } else if (this.type === "custom" && customPts) {
+            this.local_pts = customPts;
+        } else if (this.type === "circle") {
+            this.w = 150;
+            this.h = 100;
+            for (let i = 0; i < 32; i++) {
+                let a = i * 2 * Math.PI / 32;
+                this.local_pts.push([(this.w / 2) * Math.cos(a), (this.h / 2) * Math.sin(a)]);
+            }
+        }
+    }
+
+    getColors(bgColor) {
+        if (bgColor === "black") {
+            return ["white", "white"];
+        } else {
+            return ["black", "black"];
+        }
+    }
+
+    rotateVector(lx, ly, angle) {
+        let cosA = Math.cos(angle);
+        let sinA = Math.sin(angle);
+        return [lx * cosA - ly * sinA, lx * sinA + ly * cosA];
+    }
+
+    getTextDimensions() {
+        let tempCanvas = document.createElement("canvas");
+        let tempCtx = tempCanvas.getContext("2d");
+        let fontSize = Math.max(8, this.h);
+        tempCtx.font = `bold ${fontSize}px Arial`;
+        
+        let lines = this.text.split('\n');
+        let maxLineWidth = 0;
+        for (let line of lines) {
+            let w = tempCtx.measureText(line).width;
+            if (w > maxLineWidth) maxLineWidth = w;
+        }
+        
+        let bgW = maxLineWidth + 4;
+        let lineHeight = fontSize * 1.2;
+        let bgH = (lines.length * lineHeight) + 2;
+        return { bgW, bgH, fontSize, lines, lineHeight };
+    }
+
+    getRotatedCoords() {
+        if (this.type === "text") {
+            let dims = this.getTextDimensions();
+            let hw = dims.bgW / 2;
+            let hh = dims.bgH / 2;
+            let pts = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+            let flatCoords = [];
+            for (let [lx, ly] of pts) {
+                let [rx, ry] = this.rotateVector(lx, ly, this.angle);
+                flatCoords.push([this.cx + rx, this.cy + ry]);
+            }
+            return flatCoords;
+        }
+
+        let flatCoords = [];
+        for (let [lx, ly] of this.local_pts) {
+            let [rx, ry] = this.rotateVector(lx, ly, this.angle);
+            flatCoords.push([this.cx + rx, this.cy + ry]);
+        }
+        return flatCoords;
+    }
+
+    draw(ctx, bgColor) {
+        let coords = this.getRotatedCoords();
+        if (coords.length === 0) return;
+
+        if (this.type === "text") {
+            let textColor = bgColor === "black" ? "white" : "black";
+
+            ctx.save();
+            ctx.translate(this.cx, this.cy);
+            ctx.rotate(this.angle);
+
+            let dims = this.getTextDimensions();
+            let hw = dims.bgW / 2;
+            let hh = dims.bgH / 2;
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(-hw, -hh, dims.bgW, dims.bgH);
+            
+            ctx.font = `bold ${dims.fontSize}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = textColor;
+
+            let lines = dims.lines;
+            let totalHeight = lines.length * dims.lineHeight;
+            let startY = -totalHeight / 2 + dims.lineHeight / 2;
+            for (let i = 0; i < lines.length; i++) {
+                ctx.fillText(lines[i], 0, startY + i * dims.lineHeight);
+            }
+
+            ctx.restore();
+            return;
+        }
+
+        let [fillCol, outlineCol] = this.getColors(bgColor);
+
+        ctx.beginPath();
+        ctx.moveTo(coords[0][0], coords[0][1]);
+        for (let i = 1; i < coords.length; i++) {
+            ctx.lineTo(coords[i][0], coords[i][1]);
+        }
+        ctx.closePath();
+        
+        ctx.fillStyle = fillCol;
+        ctx.fill();
+        ctx.lineWidth = (this.type === "custom") ? 4 : 2;
+        ctx.strokeStyle = outlineCol;
+        ctx.stroke();
+    }
+
+    containsPoint(px, py) {
+        let coords = this.getRotatedCoords();
+        if (coords.length === 0) return false;
+
+        let tolerance = 8;
+        for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+            let x1 = coords[i][0], y1 = coords[i][1];
+            let x2 = coords[j][0], y2 = coords[j][1];
+            let l2 = (x2 - x1)**2 + (y2 - y1)**2;
+            if (l2 > 0) {
+                let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                let projX = x1 + t * (x2 - x1);
+                let projY = y1 + t * (y2 - y1);
+                if (Math.hypot(px - projX, py - projY) <= tolerance) {
+                    return true;
+                }
+            }
+        }
+
+        let inside = false;
+        for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+            let xi = coords[i][0], yi = coords[i][1];
+            let xj = coords[j][0], yj = coords[j][1];
+            let intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    worldToLocal(wx, wy) {
+        let vx = wx - this.cx;
+        let vy = wy - this.cy;
+        let cosA = Math.cos(-this.angle);
+        let sinA = Math.sin(-this.angle);
+        return [vx * cosA - vy * sinA, vx * sinA + vy * cosA];
+    }
+
+    moveEdge(index, dx, dy) {
+        if (this.type === "circle" || this.type === "text") return;
+        let coords = this.getRotatedCoords();
+        let n = coords.length;
+        let i1 = index;
+        let i2 = (index + 1) % n;
+
+        let p1 = coords[i1];
+        let p2 = coords[i2];
+
+        let ex = p2[0] - p1[0];
+        let ey = p2[1] - p1[1];
+        let len = Math.hypot(ex, ey);
+        if (len === 0) return;
+
+        let tx = ex / len;
+        let ty = ey / len;
+        let nx = -ty;
+        let ny = tx;
+
+        let d = dx * nx + dy * ny;
+        let txWorld = d * nx;
+        let tyWorld = d * ny;
+
+        let newP1 = [p1[0] + txWorld, p1[1] + tyWorld];
+        let newP2 = [p2[0] + txWorld, p2[1] + tyWorld];
+
+        this.local_pts[i1] = this.worldToLocal(newP1[0], newP1[1]);
+        this.local_pts[i2] = this.worldToLocal(newP2[0], newP2[1]);
+    }
+
+    getHandles(bgColor) {
+        let handles = [];
+        let offset = 14;
+
+        if (this.type === "text") {
+            let dims = this.getTextDimensions();
+            let hw = dims.bgW / 2;
+            let hh = dims.bgH / 2;
+
+            let [rxSize, rySize] = this.rotateVector(0, hh + 14, this.angle);
+            handles.push({type: "TEXT_SIZE", x: this.cx + rxSize, y: this.cy + rySize, color: "red", fill: bgColor === "black" ? "black" : "white"});
+
+            let [rxRot, ryRot] = this.rotateVector(0, -hh - 14, this.angle);
+            handles.push({type: "ROT", x: this.cx + rxRot, y: this.cy + ryRot, color: "white", fill: "blue"});
+            return handles;
+        }
+
+        if (this.type === "circle") {
+            let hw = this.w / 2;
+            let hh = this.h / 2;
+            let cornerLocal = [
+                [-hw, -hh, "TL"],
+                [hw, -hh, "TR"],
+                [hw, hh, "BR"],
+                [-hw, hh, "BL"]
+            ];
+            for (let [lx, ly, htype] of cornerLocal) {
+                let [rx, ry] = this.rotateVector(lx, ly, this.angle);
+                handles.push({type: htype, x: this.cx + rx, y: this.cy + ry, color: "red", fill: bgColor === "black" ? "black" : "white"});
+            }
+            let rotLocal = (this.w >= this.h) ? [0, -hh] : [hw, 0];
+            let [rx, ry] = this.rotateVector(rotLocal[0], rotLocal[1], this.angle);
+            handles.push({type: "ROT", x: this.cx + rx, y: this.cy + ry, color: "white", fill: "blue"});
+            return handles;
+        }
+
+        for (let i = 0; i < this.local_pts.length; i++) {
+            let [lx, ly] = this.local_pts[i];
+            let dist = Math.hypot(lx, ly);
+            let extLx = dist > 0 ? lx + (lx / dist) * offset : lx;
+            let extLy = dist > 0 ? ly + (ly / dist) * offset : ly;
+
+            let [rx, ry] = this.rotateVector(extLx, extLy, this.angle);
+            handles.push({type: `V_${i}`, x: this.cx + rx, y: this.cy + ry, color: "red", fill: bgColor === "black" ? "black" : "white"});
+        }
+
+        let n = this.local_pts.length;
+        let maxLen = -1;
+        let bestI = 0;
+        for (let i = 0; i < n; i++) {
+            let p1 = this.local_pts[i];
+            let p2 = this.local_pts[(i + 1) % n];
+            let length = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+            if (length > maxLen) {
+                maxLen = length;
+                bestI = i;
+            }
+        }
+
+        let midLx = (this.local_pts[bestI][0] + this.local_pts[(bestI + 1) % n][0]) / 2;
+        let midLy = (this.local_pts[bestI][1] + this.local_pts[(bestI + 1) % n][1]) / 2;
+        let [rx, ry] = this.rotateVector(midLx, midLy, this.angle);
+        handles.push({type: "ROT", x: this.cx + rx, y: this.cy + ry, color: "white", fill: "blue"});
+
+        return handles;
+    }
+
+    move(dx, dy) {
+        this.cx += dx;
+        this.cy += dy;
+    }
+
+    moveVertex(index, worldTargetX, worldTargetY) {
+        let vx = worldTargetX - this.cx;
+        let vy = worldTargetY - this.cy;
+        let cosA = Math.cos(-this.angle);
+        let sinA = Math.sin(-this.angle);
+        let lvx = vx * cosA - vy * sinA;
+        let lvy = vx * sinA + vy * cosA;
+
+        if (this.type === "circle") {
+            let dist = Math.hypot(lvx, lvy);
+            let r = Math.max(20, dist);
+            this.local_pts = [];
+            for (let i = 0; i < 32; i++) {
+                let a = i * 2 * Math.PI / 32;
+                this.local_pts.push([r * Math.cos(a), r * Math.sin(a)]);
+            }
+        } else {
+            let dist = Math.hypot(lvx, lvy);
+            let offset = 14;
+            if (dist > offset) {
+                lvx -= (lvx / dist) * offset;
+                lvy -= (lvy / dist) * offset;
+            }
+            this.local_pts[index] = [lvx, lvy];
+        }
+    }
+
+    resizeText(x, y) {
+        let vx = x - this.cx;
+        let vy = y - this.cy;
+        let cosA = Math.cos(-this.angle);
+        let sinA = Math.sin(-this.angle);
+        let lvx = vx * cosA - vy * sinA;
+        
+        let deltaLvx = lvx - dragData.init_lvx;
+        this.h = Math.max(8, dragData.init_h + deltaLvx * 0.5);
+    }
+
+    addVertexAt(worldX, worldY) {
+        if (this.type === "circle" || this.type === "text") return;
+
+        let vx = worldX - this.cx;
+        let vy = worldY - this.cy;
+        let cosA = Math.cos(-this.angle);
+        let sinA = Math.sin(-this.angle);
+        let lvx = vx * cosA - vy * sinA;
+        let lvy = vx * sinA + vy * cosA;
+
+        let n = this.local_pts.length;
+        let bestIdx = 0;
+        let minDist = Infinity;
+
+        for (let i = 0; i < n; i++) {
+            let p1 = this.local_pts[i];
+            let p2 = this.local_pts[(i + 1) % n];
+
+            let l2 = (p2[0] - p1[0])**2 + (p2[1] - p1[1])**2;
+            if (l2 === 0) continue;
+            let t = ((lvx - p1[0]) * (p2[0] - p1[0]) + (lvy - p1[1]) * (p2[1] - p1[1])) / l2;
+            t = Math.max(0, Math.min(1, t));
+            let projX = p1[0] + t * (p2[0] - p1[0]);
+            let projY = p1[1] + t * (p2[1] - p1[1]);
+            let dist = Math.hypot(lvx - projX, lvy - projY);
+
+            if (dist < minDist) {
+                minDist = dist;
+                bestIdx = i;
+            }
+        }
+
+        this.local_pts.splice(bestIdx + 1, 0, [lvx, lvy]);
+        if (this.type !== "custom") {
+            this.type = "custom";
+        }
+    }
+
+    resizeCircle(htype, x, y, oppWorld) {
+        let vx = x - oppWorld[0];
+        let vy = y - oppWorld[1];
+        let cosA = Math.cos(-this.angle);
+        let sinA = Math.sin(-this.angle);
+        let lvx = vx * cosA - vy * sinA;
+        let lvy = vx * sinA + vy * cosA;
+
+        let newW, newH, localOpp;
+        if (htype === "BR") {
+            newW = Math.max(20, lvx); newH = Math.max(20, lvy);
+            localOpp = [-newW / 2, -newH / 2];
+        } else if (htype === "TR") {
+            newW = Math.max(20, lvx); newH = Math.max(20, -lvy);
+            localOpp = [-newW / 2, newH / 2];
+        } else if (htype === "TL") {
+            newW = Math.max(20, -lvx); newH = Math.max(20, -lvy);
+            localOpp = [newW / 2, newH / 2];
+        } else if (htype === "BL") {
+            newW = Math.max(20, -lvx); newH = Math.max(20, lvy);
+            localOpp = [newW / 2, -newH / 2];
+        } else {
+            return;
+        }
+
+        this.w = newW;
+        this.h = newH;
+        this.local_pts = [];
+        for (let i = 0; i < 32; i++) {
+            let a = i * 2 * Math.PI / 32;
+            this.local_pts.push([(this.w / 2) * Math.cos(a), (this.h / 2) * Math.sin(a)]);
+        }
+
+        let [rxOpp, ryOpp] = this.rotateVector(localOpp[0], localOpp[1], this.angle);
+        this.cx = oppWorld[0] - rxOpp;
+        this.cy = oppWorld[1] - ryOpp;
+    }
+
+    rotateTo(x, y, initialAngle, initialMouseAngle) {
+        let currentMouseAngle = Math.atan2(y - this.cy, x - this.cx);
+        this.angle = initialAngle + (currentMouseAngle - initialMouseAngle);
+    }
+
+    resetCircle() {
+        if (this.type !== "circle") return;
+        let maxSide = Math.max(this.w, this.h);
+        this.w = maxSide; 
+        this.h = maxSide;
+
+        let currentAngle = this.angle;
+        this.local_pts = [];
+        for (let i = 0; i < 32; i++) {
+            let a = i * 2 * Math.PI / 32;
+            this.local_pts.push([(this.w / 2) * Math.cos(a), (this.h / 2) * Math.sin(a)]);
+        }
+        this.angle = currentAngle;
+    }
+
+    makeSquare() {
+        if (this.type !== "rect") return;
+        let xs = this.local_pts.map(p => p[0]);
+        let ys = this.local_pts.map(p => p[1]);
+        let maxSide = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+        maxSide = Math.max(maxSide, 50);
+        let hw = maxSide / 2;
+        let hh = maxSide / 2;
+        this.local_pts = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+    }
+}
+
+const canvas = document.getElementById("paintCanvas");
+const ctx = canvas.getContext("2d");
+const container = document.getElementById("canvas-container");
+const infoLabel = document.getElementById("info-label");
+const bgBtn = document.getElementById("bg-btn");
+
+let bgColor = "black";
+let currentTool = null;
+let pendingText = "Tekst\nwielolinijkowy";
+let addVertexMode = false;
+let moveEdgeMode = false;
+let precisionMode = false;
+let activePrecisionHandle = null;
+let precisionPadCenter = null;
+let isDraggingPad = false;
+let padDragOffset = { x: 0, y: 0 };
+let precisionArrows = [];
+let shapes = [];
+let selectedShape = null;
+let clipboard = null;
+
+let isCaps = false;
+let isAlt = false;
+
+let keyboardMode = 'new';
+let editingShapeTarget = null;
+
+let history = [];
+let historyIndex = -1;
+
+let drawingPoints = [];
+let action = null;
+let dragData = { x: 0, y: 0, handle: null, edge_index: null, opp_world: [0,0], init_angle: 0, init_mouse_angle: 0, init_h: 0, init_lvx: 0 };
+let mouseX = -100, mouseY = -100;
+let mouseInCanvas = false;
+
+function toggleInfoModal(show) {
+    document.getElementById("info-modal").style.display = show ? "flex" : "none";
+}
+
+function openKeyboardForNewText() {
+    keyboardMode = 'new';
+    document.getElementById("kb-title").textContent = "Wprowadź nowy tekst";
+    let input = document.getElementById("kb-input");
+    input.value = pendingText;
+    isCaps = false;
+    isAlt = false;
+    updateKeyboardUI();
+    document.getElementById("keyboard-modal").style.display = "flex";
+    input.focus();
+    input.select();
+}
+
+function openKeyboardForEdit(shape) {
+    keyboardMode = 'edit';
+    editingShapeTarget = shape;
+    document.getElementById("kb-title").textContent = "Edytuj tekst";
+    let input = document.getElementById("kb-input");
+    input.value = shape.text;
+    isCaps = false;
+    isAlt = false;
+    updateKeyboardUI();
+    document.getElementById("keyboard-modal").style.display = "flex";
+    input.focus();
+    input.select();
+}
+
+function closeKeyboardModal() {
+    document.getElementById("keyboard-modal").style.display = "none";
+}
+
+function confirmKeyboardModal() {
+    let inputVal = document.getElementById("kb-input").value;
+    if (inputVal.trim() !== "") {
+        if (keyboardMode === 'new') {
+            pendingText = inputVal;
+            setTool("text");
+        } else if (keyboardMode === 'edit' && editingShapeTarget) {
+            editingShapeTarget.text = inputVal;
+            selectedShape = editingShapeTarget;
+            addVertexMode = false;
+            moveEdgeMode = false;
+            precisionMode = false;
+            activePrecisionHandle = null;
+            precisionPadCenter = null;
+            isDraggingPad = false;
+            updateCursorStyle();
+            saveState();
+            infoLabel.textContent = "Zaktualizowano tekst.";
+            drawScene();
+        }
+    }
+    closeKeyboardModal();
+}
+
+function kbKey(btnElement) {
+    let input = document.getElementById("kb-input");
+    let char = btnElement.getAttribute('data-n');
+    if (isAlt) {
+        char = btnElement.getAttribute('data-a');
+    } else if (isCaps) {
+        char = btnElement.getAttribute('data-s');
+    }
+    
+    let start = input.selectionStart;
+    let end = input.selectionEnd;
+    input.value = input.value.substring(0, start) + char + input.value.substring(end);
+    input.selectionStart = input.selectionEnd = start + 1;
+    input.focus();
+
+    if (isCaps) isCaps = false;
+    if (isAlt) isAlt = false;
+    updateKeyboardUI();
+}
+
+function kbEnter() {
+    let input = document.getElementById("kb-input");
+    let start = input.selectionStart;
+    let end = input.selectionEnd;
+    input.value = input.value.substring(0, start) + "\n" + input.value.substring(end);
+    input.selectionStart = input.selectionEnd = start + 1;
+    input.focus();
+}
+
+function kbBackspace() {
+    let input = document.getElementById("kb-input");
+    let start = input.selectionStart;
+    let end = input.selectionEnd;
+    if (start !== end) {
+        input.value = input.value.substring(0, start) + input.value.substring(end);
+        input.selectionStart = input.selectionEnd = start;
+    } else if (start > 0) {
+        input.value = input.value.substring(0, start - 1) + input.value.substring(start);
+        input.selectionStart = input.selectionEnd = start - 1;
+    }
+    input.focus();
+}
+
+function kbToggleCaps() {
+    isCaps = !isCaps;
+    if (isCaps) isAlt = false;
+    updateKeyboardUI();
+}
+
+function kbToggleAlt() {
+    isAlt = !isAlt;
+    if (isAlt) isCaps = false;
+    updateKeyboardUI();
+}
+
+function updateKeyboardUI() {
+    let capsBtn = document.getElementById("kb-caps-btn");
+    let altBtn = document.getElementById("kb-alt-btn");
+    
+    if (isCaps) {
+        capsBtn.classList.add("active");
+    } else {
+        capsBtn.classList.remove("active");
+    }
+
+    if (isAlt) {
+        altBtn.classList.add("active");
+    } else {
+        altBtn.classList.remove("active");
+    }
+
+    let keys = document.querySelectorAll('.kkey');
+    keys.forEach(btn => {
+        let normal = btn.getAttribute('data-n');
+        let shift = btn.getAttribute('data-s');
+        let alt = btn.getAttribute('data-a');
+
+        if (isAlt) {
+            btn.textContent = alt;
+        } else if (isCaps) {
+            btn.textContent = shift;
+        } else {
+            btn.textContent = normal;
+        }
+    });
+}
+
+function saveState() {
+    history = history.slice(0, historyIndex + 1);
+    let state = shapes.map(s => ({
+        type: s.type,
+        cx: s.cx,
+        cy: s.cy,
+        angle: s.angle,
+        w: s.w,
+        h: s.h,
+        text: s.text,
+        local_pts: JSON.parse(JSON.stringify(s.local_pts))
+    }));
+    history.push(state);
+    historyIndex++;
+}
+
+function undo() {
+    if (historyIndex > 0) {
+        historyIndex--;
+        loadState(history[historyIndex]);
+        selectedShape = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        updateCursorStyle();
+        infoLabel.textContent = "Cofnięto operację.";
+        drawScene();
+    } else {
+        infoLabel.textContent = "Brak operacji do cofnięcia.";
+    }
+}
+
+function redo() {
+    if (historyIndex < history.length - 1) {
+        historyIndex++;
+        loadState(history[historyIndex]);
+        selectedShape = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        updateCursorStyle();
+        infoLabel.textContent = "Przywrócono operację.";
+        drawScene();
+    } else {
+        infoLabel.textContent = "Brak operacji do przywrócenia.";
+    }
+}
+
+function loadState(stateData) {
+    shapes = stateData.map(d => {
+        let s = new Shape(d.type, d.cx, d.cy, d.local_pts, d.text);
+        s.angle = d.angle;
+        s.w = d.w;
+        s.h = d.h;
+        return s;
+    });
+}
+
+function resizeCanvas() {
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    drawScene();
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+saveState();
+
+function updateCursorStyle() {
+    if (addVertexMode || moveEdgeMode) {
+        canvas.className = "cursor-dot-custom";
+    } else {
+        if (bgColor === "white") {
+            canvas.className = "cursor-crosshair-black";
+        } else {
+            canvas.className = "cursor-crosshair-white";
+        }
+    }
+}
+
+function setTool(tool) {
+    drawingPoints = [];
+    currentTool = tool;
+    addVertexMode = false;
+    moveEdgeMode = false;
+    precisionMode = false;
+    activePrecisionHandle = null;
+    precisionPadCenter = null;
+    isDraggingPad = false;
+    selectedShape = null;
+    updateCursorStyle();
+    const toolNames = {
+        "custom_poly": "Własny (Klikaj punkty, dwuklik kończy)",
+        "rect": "Prostokąt",
+        "circle": "Koło",
+        "triangle": "Trójkąt",
+        "text": "Tekst (Kliknij na planszy, aby umieścić)"
+    };
+    infoLabel.textContent = `Rysowanie: ${toolNames[tool] || ""}`;
+    drawScene();
+}
+
+function toggleAddVertexMode() {
+    if (!selectedShape) {
+        infoLabel.textContent = "Najpierw zaznacz element, aby dodać uchwyt!";
+        return;
+    }
+    if (selectedShape.type === "circle" || selectedShape.type === "text") {
+        infoLabel.textContent = "Nie można dodawać uchwytów do tego elementu!";
+        return;
+    }
+    addVertexMode = !addVertexMode;
+    moveEdgeMode = false;
+    precisionMode = false;
+    activePrecisionHandle = null;
+    precisionPadCenter = null;
+    isDraggingPad = false;
+    currentTool = null;
+    updateCursorStyle();
+    if (addVertexMode) {
+        infoLabel.textContent = "Tryb: Kliknij ścianę zaznaczonego elementu, aby dodać uchwyt";
+    } else {
+        infoLabel.textContent = "Wyłączono tryb dodawania uchwytu";
+    }
+    drawScene();
+}
+
+function toggleMoveEdgeMode() {
+    if (!selectedShape) {
+        infoLabel.textContent = "Najpierw zaznacz element, aby przesuwać boki!";
+        return;
+    }
+    if (selectedShape.type === "circle" || selectedShape.type === "text") {
+        infoLabel.textContent = "Nie można przesuwać boków tego elementu!";
+        return;
+    }
+    moveEdgeMode = !moveEdgeMode;
+    addVertexMode = false;
+    precisionMode = false;
+    activePrecisionHandle = null;
+    precisionPadCenter = null;
+    isDraggingPad = false;
+    currentTool = null;
+    updateCursorStyle();
+    if (moveEdgeMode) {
+        infoLabel.textContent = "Tryb Przesuwania Boków: Kliknij i przeciągnij krawędź obiektu";
+    } else {
+        infoLabel.textContent = "Wyłączono tryb przesuwania boków";
+    }
+    drawScene();
+}
+
+function togglePrecisionMode() {
+    if (!selectedShape) {
+        infoLabel.textContent = "Najpierw zaznacz element, aby włączyć precyzję!";
+        return;
+    }
+    precisionMode = !precisionMode;
+    addVertexMode = false;
+    moveEdgeMode = false;
+    activePrecisionHandle = null;
+    precisionPadCenter = null;
+    isDraggingPad = false;
+    currentTool = null;
+    updateCursorStyle();
+    if (precisionMode) {
+        infoLabel.textContent = "Tryb Precyzji: Kliknij uchwyt, powiększony pad sterujący aktywny";
+    } else {
+        infoLabel.textContent = "Wyłączono tryb precyzji";
+    }
+    drawScene();
+}
+
+function toggleBackground() {
+    bgColor = bgColor === "white" ? "black" : "white";
+    container.style.backgroundColor = bgColor;
+    bgBtn.textContent = bgColor === "white" ? "Tło: Białe" : "Tło: Czarne";
+    updateCursorStyle();
+    drawScene();
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        document.getElementById("fs-btn").textContent = "Wyjdź z FS";
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+            document.getElementById("fs-btn").textContent = "Full-screen";
+        }
+    }
+}
+
+function deleteSelected() {
+    if (selectedShape) {
+        shapes = shapes.filter(s => s !== selectedShape);
+        selectedShape = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        isDraggingPad = false;
+        updateCursorStyle();
+        saveState();
+        infoLabel.textContent = "Usunięto zaznaczony obiekt.";
+        drawScene();
+    }
+}
+
+function clearAll() {
+    if (confirm("Czy na pewno chcesz wyczyścić wszystko?")) {
+        selectedShape = null;
+        drawingPoints = [];
+        shapes = [];
+        clipboard = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        isDraggingPad = false;
+        updateCursorStyle();
+        saveState();
+        infoLabel.textContent = "Wyczyszczono całą planszę.";
+        drawScene();
+    }
+}
+
+function copySelected() {
+    if (selectedShape) {
+        clipboard = {
+            type: selectedShape.type,
+            angle: selectedShape.angle,
+            text: selectedShape.text,
+            local_pts: JSON.parse(JSON.stringify(selectedShape.local_pts)),
+            w: selectedShape.w || 150,
+            h: selectedShape.h || 40
+        };
+        infoLabel.textContent = "Skopiowano obiekt do schowka.";
+    } else {
+        infoLabel.textContent = "Najpierw zaznacz obiekt do skopiowania.";
+    }
+}
+
+function pasteSelected() {
+    if (clipboard) {
+        selectedShape = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        isDraggingPad = false;
+        updateCursorStyle();
+        let baseX = canvas.width / 2;
+        let baseY = canvas.height / 2;
+
+        let newShape = new Shape(clipboard.type, baseX, baseY, clipboard.local_pts, clipboard.text);
+        newShape.angle = clipboard.angle;
+        newShape.w = clipboard.w;
+        newShape.h = clipboard.h;
+
+        shapes.push(newShape);
+        selectedShape = newShape;
+        saveState();
+        infoLabel.textContent = "Wklejono obiekt.";
+        drawScene();
+    } else {
+        infoLabel.textContent = "Schowek jest pusty.";
+    }
+}
+
+canvas.addEventListener("mouseenter", () => mouseInCanvas = true);
+canvas.addEventListener("mouseleave", () => {
+    mouseInCanvas = false;
+    drawScene();
+});
+
+canvas.addEventListener("mousedown", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+
+    if (precisionMode && selectedShape) {
+        if (precisionPadCenter && Math.hypot(precisionPadCenter.x - x, precisionPadCenter.y - y) <= 20) {
+            isDraggingPad = true;
+            padDragOffset = { x: precisionPadCenter.x - x, y: precisionPadCenter.y - y };
+            return;
+        }
+
+        for (let arrow of precisionArrows) {
+            if (Math.hypot(arrow.x - x, arrow.y - y) <= 35) {
+                saveState();
+                applyPrecisionMove(arrow.handle, arrow.dir);
+                drawScene();
+                return;
+            }
+        }
+
+        let handles = selectedShape.getHandles(bgColor);
+        let clickedHandle = null;
+        for (let h of handles) {
+            if (Math.hypot(h.x - x, h.y - y) <= 15) {
+                clickedHandle = h;
+                break;
+            }
+        }
+
+        if (clickedHandle && clickedHandle.type !== "ROT") {
+            activePrecisionHandle = clickedHandle.type;
+            drawScene();
+            return;
+        }
+
+        return;
+    }
+
+    if (currentTool === "custom_poly") {
+        drawingPoints.push([x, y]);
+        drawScene();
+        return;
+    }
+
+    if (addVertexMode && selectedShape) {
+        saveState();
+        selectedShape.addVertexAt(x, y);
+        addVertexMode = false; 
+        updateCursorStyle();
+        infoLabel.textContent = "Dodano nowy uchwyt do ściany.";
+        drawScene();
+        return;
+    }
+
+    if (moveEdgeMode && selectedShape) {
+        let coords = selectedShape.getRotatedCoords();
+        let clickedEdgeIndex = -1;
+        let minD = 12; // tolerance
+        for (let i = 0; i < coords.length; i++) {
+            let p1 = coords[i];
+            let p2 = coords[(i + 1) % coords.length];
+            let l2 = (p2[0] - p1[0])**2 + (p2[1] - p1[1])**2;
+            if (l2 > 0) {
+                let t = ((x - p1[0]) * (p2[0] - p1[0]) + (y - p1[1]) * (p2[1] - p1[1])) / l2;
+                t = Math.max(0, Math.min(1, t));
+                let projX = p1[0] + t * (p2[0] - p1[0]);
+                let projY = p1[1] + t * (p2[1] - p1[1]);
+                let dist = Math.hypot(x - projX, y - projY);
+                if (dist <= minD) {
+                    minD = dist;
+                    clickedEdgeIndex = i;
+                }
+            }
+        }
+
+        if (clickedEdgeIndex !== -1) {
+            action = "move_edge";
+            dragData.edge_index = clickedEdgeIndex;
+            dragData.x = x;
+            dragData.y = y;
+            return;
+        }
+    }
+
+    let clickedHandle = null;
+    if (selectedShape) {
+        let handles = selectedShape.getHandles(bgColor);
+        for (let h of handles) {
+            if (Math.hypot(h.x - x, h.y - y) <= 12) {
+                clickedHandle = h;
+                break;
+            }
+        }
+    }
+
+    if (clickedHandle && selectedShape) {
+        dragData.handle = clickedHandle.type;
+        if (clickedHandle.type === "ROT") {
+            action = "rotate";
+            dragData.init_angle = selectedShape.angle;
+            dragData.init_mouse_angle = Math.atan2(y - selectedShape.cy, x - selectedShape.cx);
+        } else if (clickedHandle.type === "TEXT_SIZE") {
+            action = "text_size";
+            dragData.init_h = selectedShape.h;
+            let vx = x - selectedShape.cx;
+            let vy = y - selectedShape.cy;
+            let cosA = Math.cos(-selectedShape.angle);
+            let sinA = Math.sin(-selectedShape.angle);
+            dragData.init_lvx = vx * cosA - vy * sinA;
+        } else if (clickedHandle.type.startsWith("V_")) {
+            action = "vertex";
+            dragData.vertex_index = parseInt(clickedHandle.type.split("_")[1]);
+        } else {
+            action = "resize";
+            let hw = selectedShape.w / 2;
+            let hh = selectedShape.h / 2;
+            let oppLocalMap = {
+                "BR": [-hw, -hh], "TR": [-hw, hh], "TL": [hw, hh], "BL": [hw, -hh]
+            };
+            let ol = oppLocalMap[clickedHandle.type];
+            let [rx, ry] = selectedShape.rotateVector(ol[0], ol[1], selectedShape.angle);
+            dragData.opp_world = [selectedShape.cx + rx, selectedShape.cy + ry];
+        }
+        dragData.x = x;
+        dragData.y = y;
+        return;
+    }
+
+    if (currentTool) {
+        let newShape;
+        if (currentTool === "text") {
+            newShape = new Shape("text", x, y, null, pendingText);
+        } else {
+            newShape = new Shape(currentTool, x, y);
+        }
+        shapes.push(newShape);
+        selectedShape = newShape;
+        currentTool = null;
+        saveState();
+        infoLabel.textContent = "Utworzono obiekt.";
+        drawScene();
+        return;
+    }
+
+    let foundShape = null;
+    for (let i = shapes.length - 1; i >= 0; i--) {
+        if (shapes[i].containsPoint(x, y)) {
+            foundShape = shapes[i];
+            break;
+        }
+    }
+
+    if (foundShape) {
+        if (selectedShape !== foundShape) {
+            selectedShape = foundShape;
+            addVertexMode = false;
+            moveEdgeMode = false;
+            precisionMode = false;
+            activePrecisionHandle = null;
+            precisionPadCenter = null;
+            isDraggingPad = false;
+            updateCursorStyle();
+        }
+        action = "move";
+        infoLabel.textContent = `Wybrano: ${selectedShape.type.charAt(0).toUpperCase() + selectedShape.type.slice(1)}`;
+    } else {
+        selectedShape = null;
+        addVertexMode = false;
+        moveEdgeMode = false;
+        precisionMode = false;
+        activePrecisionHandle = null;
+        precisionPadCenter = null;
+        isDraggingPad = false;
+        updateCursorStyle();
+        action = null;
+        infoLabel.textContent = "Brak zaznaczenia";
+    }
+
+    dragData.x = x;
+    dragData.y = y;
+    drawScene();
+});
+
+function applyPrecisionMove(handleType, dir) {
+    let screenDx = 0, screenDy = 0;
+    if (dir === 'UP') screenDy = -1;
+    if (dir === 'DOWN') screenDy = 1;
+    if (dir === 'LEFT') screenDx = -1;
+    if (dir === 'RIGHT') screenDx = 1;
+
+    if (!selectedShape) return;
+    let handles = selectedShape.getHandles(bgColor);
+    let h = handles.find(item => item.type === handleType);
+    if (!h) return;
+
+    if (handleType === "TEXT_SIZE") {
+        if (dir === 'RIGHT' || dir === 'DOWN') selectedShape.h = Math.max(8, selectedShape.h + 2);
+        if (dir === 'LEFT' || dir === 'UP') selectedShape.h = Math.max(8, selectedShape.h - 2);
+    } else if (handleType.startsWith("V_")) {
+        let idx = parseInt(handleType.split("_")[1]);
+        selectedShape.moveVertex(idx, h.x + screenDx, h.y + screenDy);
+    } else if (["TL", "TR", "BR", "BL"].includes(handleType)) {
+        let hw = selectedShape.w / 2;
+        let hh = selectedShape.h / 2;
+        let oppLocalMap = {
+            "BR": [-hw, -hh], "TR": [-hw, hh], "TL": [hw, hh], "BL": [hw, -hh]
+        };
+        let ol = oppLocalMap[handleType];
+        let [rx, ry] = selectedShape.rotateVector(ol[0], ol[1], selectedShape.angle);
+        let oppWorld = [selectedShape.cx + rx, selectedShape.cy + ry];
+
+        selectedShape.resizeCircle(handleType, h.x + screenDx, h.y + screenDy, oppWorld);
+    }
+}
+
+canvas.addEventListener("dblclick", (e) => {
+    if (precisionMode) return;
+
+    if (currentTool === "custom_poly") {
+        if (drawingPoints.length >= 3) {
+            let sumX = drawingPoints.reduce((acc, p) => acc + p[0], 0);
+            let sumY = drawingPoints.reduce((acc, p) => acc + p[1], 0);
+            let cx = sumX / drawingPoints.length;
+            let cy = sumY / drawingPoints.length;
+
+            let localPts = drawingPoints.map(p => [p[0] - cx, p[1] - cy]);
+            drawingPoints = [];
+
+            let newShape = new Shape("custom", cx, cy, localPts);
+            shapes.push(newShape);
+            selectedShape = newShape;
+            currentTool = null;
+            saveState();
+            infoLabel.textContent = "Utworzono własny obiekt z punktów.";
+            drawScene();
+        } else {
+            infoLabel.textContent = "Wielokąt musi mieć przynajmniej 3 punkty!";
+        }
+        return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+
+    for (let i = shapes.length - 1; i >= 0; i--) {
+        if (shapes[i].containsPoint(x, y) || shapes[i] === selectedShape) {
+            if (shapes[i].type === "circle") {
+                shapes[i].resetCircle();
+                selectedShape = shapes[i];
+                addVertexMode = false;
+                moveEdgeMode = false;
+                precisionMode = false;
+                activePrecisionHandle = null;
+                precisionPadCenter = null;
+                isDraggingPad = false;
+                updateCursorStyle();
+                saveState();
+                infoLabel.textContent = "Wyrównano proporcje koła.";
+                drawScene();
+            } else if (shapes[i].type === "rect") {
+                shapes[i].makeSquare();
+                selectedShape = shapes[i];
+                addVertexMode = false;
+                moveEdgeMode = false;
+                precisionMode = false;
+                activePrecisionHandle = null;
+                precisionPadCenter = null;
+                isDraggingPad = false;
+                updateCursorStyle();
+                saveState();
+                infoLabel.textContent = "Zamieniono prostokąt w kwadrat.";
+                drawScene();
+            } else if (shapes[i].type === "text") {
+                openKeyboardForEdit(shapes[i]);
+            }
+            break;
+        }
+    }
+});
+
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+    mouseInCanvas = true;
+
+    if (isDraggingPad && precisionPadCenter) {
+        precisionPadCenter.x = mouseX + padDragOffset.x;
+        precisionPadCenter.y = mouseY + padDragOffset.y;
+        drawScene();
+        return;
+    }
+
+    if (!action || precisionMode) {
+        drawScene();
+        return;
+    }
+
+    let x = mouseX;
+    let y = mouseY;
+    let dx = x - dragData.x;
+    let dy = y - dragData.y;
+
+    if (action === "move" && selectedShape) {
+        selectedShape.move(dx, dy);
+    } else if (action === "move_edge" && selectedShape) {
+        selectedShape.moveEdge(dragData.edge_index, dx, dy);
+    } else if (action === "vertex" && selectedShape) {
+        selectedShape.moveVertex(dragData.vertex_index, x, y);
+    } else if (action === "text_size" && selectedShape) {
+        selectedShape.resizeText(x, y);
+    } else if (action === "resize" && selectedShape) {
+        selectedShape.resizeCircle(dragData.handle, x, y, dragData.opp_world);
+    } else if (action === "rotate" && selectedShape) {
+        selectedShape.rotateTo(x, y, dragData.init_angle, dragData.init_mouse_angle);
+    }
+
+    dragData.x = x;
+    dragData.y = y;
+    drawScene();
+});
+
+window.addEventListener("mouseup", () => {
+    if (isDraggingPad) {
+        isDraggingPad = false;
+    }
+    if (action) {
+        saveState();
+    }
+    action = null;
+});
+
+function drawScene() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    precisionArrows = [];
+
+    for (let shape of shapes) {
+        shape.draw(ctx, bgColor);
+    }
+
+    if (selectedShape) {
+        let handles = selectedShape.getHandles(bgColor);
+        let currentActiveHandle = null;
+
+        for (let h of handles) {
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, 7, 0, 2 * Math.PI);
+            ctx.fillStyle = h.fill;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = h.color;
+            ctx.stroke();
+
+            if (precisionMode && h.type === activePrecisionHandle && h.type !== "ROT") {
+                currentActiveHandle = h;
+            }
+        }
+
+        if (precisionMode && currentActiveHandle) {
+            if (!precisionPadCenter) {
+                precisionPadCenter = {
+                    x: currentActiveHandle.x + 85,
+                    y: currentActiveHandle.y - 85
+                };
+            }
+
+            let padX = precisionPadCenter.x;
+            let padY = precisionPadCenter.y;
+            let spacing = 46;
+            let dirs = [
+                { dir: 'UP', dx: 0, dy: -spacing, symbol: '▲' },
+                { dir: 'DOWN', dx: 0, dy: spacing, symbol: '▼' },
+                { dir: 'LEFT', dx: -spacing, dy: 0, symbol: '◀' },
+                { dir: 'RIGHT', dx: spacing, dy: 0, symbol: '▶' }
+            ];
+
+            let circleFill = bgColor; 
+            let oppositeColor = bgColor === "black" ? "white" : "black"; 
+
+            ctx.beginPath();
+            ctx.moveTo(currentActiveHandle.x, currentActiveHandle.y);
+            ctx.lineTo(padX, padY);
+            ctx.strokeStyle = oppositeColor;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = circleFill;
+            ctx.beginPath();
+            ctx.arc(padX, padY, 20, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = oppositeColor;
+            ctx.stroke();
+
+            ctx.fillStyle = oppositeColor;
+            ctx.beginPath();
+            ctx.arc(padX, padY, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.font = "bold 32px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            for (let d of dirs) {
+                let ax = padX + d.dx;
+                let ay = padY + d.dy;
+
+                ctx.fillStyle = circleFill;
+                ctx.beginPath();
+                ctx.arc(ax, ay, 30, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = oppositeColor;
+                ctx.stroke();
+
+                ctx.fillStyle = oppositeColor;
+                ctx.fillText(d.symbol, ax, ay);
+
+                precisionArrows.push({ x: ax, y: ay, handle: currentActiveHandle.type, dir: d.dir });
+            }
+        }
+    }
+
+    if (currentTool === "custom_poly" && drawingPoints.length > 0) {
+        let drawColor = bgColor === "black" ? "white" : "black";
+        let contrastColor = bgColor; 
+
+        for (let pt of drawingPoints) {
+            ctx.beginPath();
+            ctx.arc(pt[0], pt[1], 7, 0, 2 * Math.PI);
+            ctx.fillStyle = drawColor;
+            ctx.fill();
+        }
+        if (drawingPoints.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(drawingPoints[0][0], drawingPoints[0][1]);
+            for (let i = 1; i < drawingPoints.length; i++) {
+                ctx.lineTo(drawingPoints[i][0], drawingPoints[i][1]);
+            }
+            ctx.strokeStyle = drawColor;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        if (mouseInCanvas) {
+            let lastPt = drawingPoints[drawingPoints.length - 1];
+            
+            ctx.beginPath();
+            ctx.moveTo(lastPt[0], lastPt[1]);
+            ctx.lineTo(mouseX, mouseY);
+            ctx.strokeStyle = contrastColor;
+            ctx.lineWidth = 16;
+            ctx.lineCap = "round";
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(lastPt[0], lastPt[1]);
+            ctx.lineTo(mouseX, mouseY);
+            ctx.strokeStyle = drawColor;
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
+            ctx.stroke();
+        }
+    }
+
+    if (mouseInCanvas && (addVertexMode || moveEdgeMode)) {
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, 7, 0, 2 * Math.PI);
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = bgColor === "black" ? "white" : "black";
+        ctx.stroke();
+    }
+}
+</script>
+
+</body>
+</html>
