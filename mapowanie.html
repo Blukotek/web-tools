@@ -313,21 +313,23 @@ class Shape {
         this.local_pts = [];
         this.text = customText || "Tekst";
 
-        if (this.type === "rect") {
-            this.local_pts = [[-75, -50], [75, -50], [75, 50], [-75, 50]];
-        } else if (this.type === "triangle") {
-            this.local_pts = [[0, -50], [-75, 50], [75, 50]];
-        } else if (this.type === "text") {
-            this.local_pts = [];
-            this.h = 40;
-        } else if (this.type === "custom" && customPts) {
-            this.local_pts = customPts;
-        } else if (this.type === "circle") {
-            this.w = 150;
-            this.h = 100;
-            for (let i = 0; i < 32; i++) {
-                let a = i * 2 * Math.PI / 32;
-                this.local_pts.push([(this.w / 2) * Math.cos(a), (this.h / 2) * Math.sin(a)]);
+        if (customPts) {
+            this.local_pts = JSON.parse(JSON.stringify(customPts));
+        } else {
+            if (this.type === "rect") {
+                this.local_pts = [[-75, -50], [75, -50], [75, 50], [-75, 50]];
+            } else if (this.type === "triangle") {
+                this.local_pts = [[0, -50], [-75, 50], [75, 50]];
+            } else if (this.type === "text") {
+                this.local_pts = [];
+                this.h = 40;
+            } else if (this.type === "circle") {
+                this.w = 150;
+                this.h = 100;
+                for (let i = 0; i < 32; i++) {
+                    let a = i * 2 * Math.PI / 32;
+                    this.local_pts.push([(this.w / 2) * Math.cos(a), (this.h / 2) * Math.sin(a)]);
+                }
             }
         }
     }
@@ -504,6 +506,9 @@ class Shape {
 
         this.local_pts[i1] = this.worldToLocal(newP1[0], newP1[1]);
         this.local_pts[i2] = this.worldToLocal(newP2[0], newP2[1]);
+        if (this.type !== "custom") {
+            this.type = "custom";
+        }
     }
 
     getHandles(bgColor) {
@@ -602,6 +607,9 @@ class Shape {
                 lvy -= (lvy / dist) * offset;
             }
             this.local_pts[index] = [lvx, lvy];
+            if (this.type !== "custom") {
+                this.type = "custom";
+            }
         }
     }
 
@@ -1246,7 +1254,7 @@ canvas.addEventListener("mousedown", (e) => {
     if (moveEdgeMode && selectedShape) {
         let coords = selectedShape.getRotatedCoords();
         let clickedEdgeIndex = -1;
-        let minD = 12; // tolerance
+        let minD = 12;
         for (let i = 0; i < coords.length; i++) {
             let p1 = coords[i];
             let p2 = coords[(i + 1) % coords.length];
