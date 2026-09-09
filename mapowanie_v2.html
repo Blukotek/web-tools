@@ -375,10 +375,10 @@
         <div class="modal-content">
             <h2>Instrukcja Obsługi - Edytor Kształtów</h2>
             <ul>
+                <li><b>Własny wielokąt:</b> Klikaj kolejne punkty, a następnie zrób dwuklik, aby zamknąć i zatwierdzić kształt.</li>
                 <li><b>Tworzenie obiektu (tło):</b> Przytrzymaj LPM na pustym tle, aby otworzyć menu tworzenia kształtów i opcje interfejsu.</li>
                 <li><b>Edycja obiektu:</b> Przytrzymaj LPM na obiekcie przez 400ms, aby wywołać pełne menu kontekstowe modyfikacji.</li>
                 <li><b>Tryb Precyzja (Pad):</b> Po włączeniu trybu edytor czeka na kliknięcie konkretnego uchwytu. Położenie pada względem strony jest niezależne od uchwytu i nie przesuwa się samoczynnie.</li>
-                <li><b>Belka menu:</b> Możesz ją ukryć lub pokazać za pomocą opcji w menu kontekstowym tła.</li>
             </ul>
             <div class="modal-buttons">
                 <button class="modal-btn primary" onclick="toggleInfoModal(false)">Zamknij</button>
@@ -1615,8 +1615,7 @@ canvas.addEventListener("mousedown", (e) => {
     }
 
     if (currentTool === "custom_poly") {
-        drawingPoints.push([x, y]);
-        drawScene();
+        // Obsługa tradycyjnego kliknięcia w trybie rysowania
         return;
     }
 
@@ -1730,15 +1729,13 @@ canvas.addEventListener("mousedown", (e) => {
         let newShape;
         if (currentTool === "text") {
             newShape = new Shape("text", x, y, null, pendingText);
-        } else {
-            newShape = new Shape(currentTool, x, y);
+            shapes.push(newShape);
+            selectedShape = newShape;
+            currentTool = null;
+            updateColorButtonIndicator();
+            saveState();
+            drawScene();
         }
-        shapes.push(newShape);
-        selectedShape = newShape;
-        currentTool = null;
-        updateColorButtonIndicator();
-        saveState();
-        drawScene();
         return;
     }
 
@@ -1833,37 +1830,16 @@ canvas.addEventListener("mousedown", (e) => {
     drawScene();
 });
 
-function applyPrecisionMove(handleType, dir) {
-    let screenDx = 0, screenDy = 0;
-    if (dir === 'UP') screenDy = -1;
-    if (dir === 'DOWN') screenDy = 1;
-    if (dir === 'LEFT') screenDx = -1;
-    if (dir === 'RIGHT') screenDx = 1;
-
-    if (!selectedShape) return;
-    let handles = selectedShape.getHandles(bgColor);
-    let h = handles.find(item => item.type === handleType);
-    if (!h) return;
-
-    if (handleType === "TEXT_SIZE") {
-        if (dir === 'RIGHT' || dir === 'DOWN') selectedShape.h = Math.max(8, selectedShape.h + 2);
-        if (dir === 'LEFT' || dir === 'UP') selectedShape.h = Math.max(8, selectedShape.h - 2);
-    } else if (handleType.startsWith("V_")) {
-        let idx = parseInt(handleType.split("_")[1]);
-        selectedShape.moveVertex(idx, h.x + screenDx, h.y + screenDy);
-    } else if (["TL", "TR", "BR", "BL"].includes(handleType)) {
-        let hw = selectedShape.w / 2;
-        let hh = selectedShape.h / 2;
-        let oppLocalMap = {
-            "BR": [-hw, -hh], "TR": [-hw, hh], "TL": [hw, hh], "BL": [hw, -hh]
-        };
-        let ol = oppLocalMap[handleType];
-        let [rx, ry] = selectedShape.rotateVector(ol[0], ol[1], selectedShape.angle);
-        let oppWorld = [selectedShape.cx + rx, selectedShape.cy + ry];
-
-        selectedShape.resizeCircle(handleType, h.x + screenDx, h.y + screenDy, oppWorld);
+// Obsługa pojedyńczego kliknięcia oraz dwuklika dla własnego wielokąta
+canvas.addEventListener("click", (e) => {
+    if (currentTool === "custom_poly") {
+        const rect = canvas.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        drawingPoints.push([x, y]);
+        drawScene();
     }
-}
+});
 
 canvas.addEventListener("dblclick", (e) => {
     hideAllMenus();
@@ -1871,6 +1847,33 @@ canvas.addEventListener("dblclick", (e) => {
     const rect = canvas.getBoundingClientRect();
     let x = e.clientX - rect.left;
     let y = e.clientY - rect.top;
+
+    if (currentTool === "custom_poly") {
+        if (drawingPoints.length >= 2) {
+            let sumX = 0, sumY = 0;
+            for (let pt of drawingPoints) {
+                sumX += pt[0];
+                sumY += pt[1];
+            }
+            let cx = sumX / drawingPoints.length;
+            let cy = sumY / drawingPoints.length;
+
+            let localPts = drawingPoints.map(pt => [pt[0] - cx, pt[1] - cy]);
+            let newShape = new Shape("custom", cx, cy, localPts);
+            shapes.push(newShape);
+            selectedShape = newShape;
+            currentTool = null;
+            drawingPoints = [];
+            updateColorButtonIndicator();
+            saveState();
+            drawScene();
+        } else {
+            drawingPoints = [];
+            currentTool = null;
+            drawScene();
+        }
+        return;
+    }
 
     for (let i = shapes.length - 1; i >= 0; i--) {
         if (shapes[i].containsPoint(x, y) || shapes[i] === selectedShape) {
